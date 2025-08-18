@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои рабочие дни</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .user-info { font-size: 1.2em; font-weight: bold; }
+        .auth-links a { margin-left: 15px; text-decoration: none; color: #007bff; }
+        .auth-links a:hover { text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background-color: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+        th { background-color: #f2f2f2; color: #555; font-weight: bold; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        tr:hover { background-color: #f1f1f1; }
+        .weekend-row { background-color: #ffe0e0; color: #cc0000; } /* Цвет для выходных */
+        .weekend-row:hover { background-color: #ffcccc; }
+        .day-type { font-weight: bold; }
+        .status-on-work { color: green; font-weight: bold; }
+        .status-on-break { color: orange; font-weight: bold; }
+        .status-finished { color: blue; font-weight: bold; }
+        .status-day-off { color: gray; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">
+            {% if current_user.is_authenticated %}
+                Привет, {{ current_user.username }}!
+            {% else %}
+                Привет, Гость!
+            {% endif %}
+        </div>
+        <div class="auth-links">
+            {% if current_user.is_authenticated %}
+                <a href="{% url 'logout' %}">Выйти</a>
+            {% else %}
+                <a href="{% url 'login' %}">Войти</a>
+                <a href="{% url 'register' %}">Зарегистрироваться</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <h1>Мои рабочие дни на этой неделе</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <th>День недели</th>
+                <th>Дата</th>
+                <th>Тип дня</th>
+                <th>Общее время</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for workday in workdays %}
+            <tr class="{% if workday.is_weekend %}weekend-row{% endif %}">
+                <td>{{ workday.date|date:"l" }}</td> {# l - это полное название дня недели #}
+                <td>{{ workday.date|date:"d.m.Y" }}</td> {# Форматируем дату #}
+                <td class="day-type">{{ workday.day_type }}</td>
+                <td>{{ workday.total_time }}</td>
+                <td class="
+                    {% if workday.status == 'На работе' %}status-on-work{% endif %}
+                    {% if workday.status == 'На перерыве' %}status-on-break{% endif %}
+                    {% if workday.status == 'Закончен' %}status-finished{% endif %}
+                    {% if workday.status == 'Выходной' %}status-day-off{% endif %}
+                ">
+                    {{ workday.status }}
+                </td>
+                <td>
+                    {% for action in workday.actions %}
+                        <small>{{ action.type }} ({{ action.timestamp }})</small><br>
+                    {% empty %}
+                        <small>Действий нет</small>
+                    {% endfor %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6">Данных о рабочих днях пока нет.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    </body>
+</html>

@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочее время</title>
+    <style>
+        body {
+            font-family: Calibri, sans-serif;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px auto;
+            font-size: 0.9em;
+            table-layout: fixed;
+        }
+
+        .week-table thead th {
+            background-color: #e6e6e6;
+            color: #333;
+            font-weight: bold;
+            padding: 8px 4px;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 6px 4px;
+            vertical-align: top;
+            white-space: normal;
+        }
+
+        .row-header {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding-left: 10px;
+            width: 120px;
+            vertical-align: middle;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        /* Базовый стиль для всех групп времени */
+        .time-pair-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-bottom: 3px;
+            padding: 3px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            background-color: transparent;
+        }
+
+        /* Стиль для кнопки "+" */
+        .time-pair-group.default-highlight {
+            /*background-color: #094581; !* Светло-голубой, например *!*/
+        }
+
+        /* Стиль для кнопки "МК" */
+        .time-pair-group.mk-highlight {
+            background-color: #1cbeb2;
+        }
+
+        .time-display, .time-input {
+            width: 70px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .time-input,
+        .day-type-select {
+            background-color: var(--input-bg-color);
+            color: var(--input-text-color);
+            border: 1px solid var(--input-border-color);
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+
+        .time-entry-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+
+
+        /* Единый стиль для всех кнопок действий */
+        .btn-action, a.btn-action, .nav-btn, .import-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px; /* Увеличил padding для лучшего внешнего вида */
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 2px;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn-action:hover, .nav-btn:hover, .import-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-remove-pair {
+            background-color: #da0d0d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 2px;
+        }
+
+        .time-pair-group,
+        .actions-container {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin: 3px auto;
+            padding: 3px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            flex-wrap: wrap;
+        }
+
+        .actions-container {
+            flex-direction: row;
+            justify-content: center;
+        }
+
+        .time-entry-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 3px;
+        }
+
+        .btn-save {
+            background-color: #28a745;
+        }
+
+        .btn-add-mk {
+            background-color: #1cbeb2;
+        }
+
+        .btn-cancel {
+            background-color: #dc3545;
+        }
+
+        .total-time-display {
+            font-weight: bold;
+            color: #1976d2;
+        }
+
+        .day-balance-display {
+            font-weight: bold;
+            color: forestgreen;
+        }
+
+        .day-balance-display.negative {
+            color: red;
+        }
+
+        .month-balance-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 20px auto;
+            font-size: 1.2em;
+            font-weight: bold;
+            background-color: var(--month-balance-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+        {#transition: background-color 0.3s, color 0.3s;#}
+        }
+
+        /*
+            Явно применяем цвет текста ко всем дочерним элементам.
+            Это гарантирует, что стили не будут переопределены.
+        */
+        .month-balance-container .label,
+        .month-balance-container .month-balance-display,
+        .month-balance-container .month-balance-display.positive,
+        .month-balance-container .month-balance-display.negative {
+            color: var(--month-balance-text);
+        }
+
+        .month-balance-display.negative {
+            color: red;
+        }
+
+        .month-balance-display.positive {
+            color: green;
+        }
+
+        .month-navigation {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .cumulative-balance-display {
+            font-weight: bold;
+            color: forestgreen;
+        }
+
+        .cumulative-balance-display.negative {
+            color: red;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+        }
+
+        .import-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Переменные для светлой темы (используются по умолчанию) */
+        :root {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --header-bg-color: #e6e6e6;
+            --table-border-color: #dddddd;
+            --row-header-bg-color: #f2f2f2;
+            --month-balance-bg: #e0f2f7;
+            --month-balance-text: #333333;
+            --positive-color: #28a745;
+            --negative-color: #dc3545;
+            --input-bg-color: #ffffff;
+            --input-text-color: #333333;
+            --input-border-color: #dddddd;
+
+            .month-balance-display.positive {
+                color: var(--positive-color);
+            }
+
+            .month-balance-display.negative {
+                color: var(--negative-color);
+            }
+
+        }
+
+        /* Переменные для темной темы */
+        body.dark-theme {
+            --bg-color: #121212;
+            --text-color: #f5f5f5;
+            --header-bg-color: #2c2c2c;
+            --table-border-color: #444444;
+            --row-header-bg-color: #333333;
+            --month-balance-bg: #222222;
+            --month-balance-text: #f5f5f5;
+            --positive-color: #28a745;
+            --negative-color: #dc3545;
+            --input-bg-color: #444444;
+            --input-text-color: #f5f5f5;
+            --input-border-color: #555555;
+
+
+        }
+        body.random-theme {
+    /* Эти переменные будут динамически установлены JavaScript-ом */
+}
+        /* Применяем переменные ко всей странице */
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: Calibri, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px auto;
+            font-size: 0.9em;
+            table-layout: fixed;
+        }
+
+        .week-table thead th {
+            background-color: var(--header-bg-color);
+            color: var(--text-color);
+            font-weight: bold;
+            padding: 8px 4px;
+        }
+
+        th, td {
+            border: 1px solid var(--table-border-color);
+            text-align: center;
+            padding: 6px 4px;
+            vertical-align: top;
+            white-space: normal;
+        }
+
+        .row-header {
+            background-color: var(--row-header-bg-color);
+            text-align: left;
+            padding-left: 10px;
+            width: 120px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="user-info">
+        {% if current_user.is_authenticated %}
+            Привет, {{ current_user.username }}!
+        {% else %}
+            Привет, Гость!
+        {% endif %}
+    </div>
+    <div class="auth-links">
+        <button id="theme-toggle" class="btn-action">Сменить тему</button>
+        <button id="random-theme-btn" class="btn-action">Случайная тема</button>
+        {% if current_user.is_authenticated %}
+            <a href="{% url 'logout' %}" class="btn-action">Выйти</a>
+        {% else %}
+            <a href="{% url 'login' %}">Войти</a>
+            <a href="{% url 'register' %}">Зарегистрироваться</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="import-section">
+    <h2>Импорт данных из файла</h2>
+    <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'import_data' %}">
+        {% csrf_token %}
+        <input type="file" name="file" id="file-input" required style="display: none;">
+        <label for="file-input" class="btn-action import-btn">Выберите файл</label>
+        <button type="submit" class="import-btn">Загрузить и импортировать</button>
+    </form>
+    <div id="import-status"></div>
+</div>
+
+<h1>Рабочее время сотрудника</h1>
+
+<div class="month-balance-container">
+    <span class="label month-balance-label">Баланс за {{ current_month_display }}:</span>
+    <span id="month-balance-total"
+          class="month-balance-display {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
+        {{ total_month_balance }}
+    </span>
+</div>
+
+<div class="month-navigation">
+    <button class="nav-btn" id="prev-month">← Предыдущий месяц</button>
+    <span class="current-month">{{ current_month_display }}</span>
+    <button class="nav-btn" id="next-month">Следующий месяц →</button>
+</div>
+
+
+{% for week in weekly_table_rows %}
+    <table class="week-table">
+        <thead>
+        <tr>
+            <th class="row-header"></th>
+            {% for day in week.dates %}
+                <th class="{% if not day.is_current_month %}other-month-day{% endif %}">
+                    {{ day.date_obj|date:'D d.m' }}
+                </th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <th class="row-header">Тип дня</th>
+            {% for cell_data in week.types %}
+                <td>
+                    {% if cell_data.is_current_month %}
+                        <span class="day-type-display" id="day-type-display-{{ cell_data.id }}">
+                                {{ cell_data.display }}
+                            </span>
+                        <select id="day-type-{{ cell_data.id }}" class="day-type-select"
+                                data-day-id="{{ cell_data.id }}" style="display:none;">
+                            <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Рабочий день</option>
+                            <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной</option>
+                            <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день
+                            </option>
+                            <option value="HD" {% if cell_data.type == 'HD' %}selected{% endif %}>Праздник</option>
+                            <option value="VL" {% if cell_data.type == 'VL' %}selected{% endif %}>Отпуск</option>
+                        </select>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Время</th>
+            {% for cell_data in week.times %}
+                <td>
+                    {% if cell_data %}
+                        {% for time_pair in cell_data %}
+                            <div class="time-pair-group {% if time_pair.entry_type == 'mk' %}mk-highlight{% else %}default-highlight{% endif %}"
+                                 data-order="{{ time_pair.order }}"
+                                 data-day-id="{{ time_pair.day_id }}"
+                                 data-entry-type="{{ time_pair.entry_type|default:'default' }}">
+                                <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}"
+                                     data-order="{{ time_pair.order }}">
+                                    <span class="mk-label"
+                                          style="{% if time_pair.entry_type != 'mk' %}display:none;{% endif %}">МК:</span>
+
+                                    <span class="time-display entry-display">{{ time_pair.entry_time|default:"-" }}</span>
+                                    <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}"
+                                           style="display:none;">
+                                    <span class="time-display exit-display">{{ time_pair.exit_time|default:"-" }}</span>
+                                    <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}"
+                                           style="display:none;">
+                                    <button type="button" class="btn-remove-pair" style="display:none;">-</button>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Итого за день</th>
+            {% for cell_data in week.total_time %}
+                <td>
+                    {% if cell_data %}
+                        <span class="total-time-display" id="total-time-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Баланс за день</th>
+            {% for cell_data in week.day_balance %}
+                <td>
+                    {% if cell_data %}
+                        <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}"
+                              id="day-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+        <tr>
+            <th class="row-header">Накоп. баланс</th>
+            {% for cell_data in week.cumulative_balance %}
+                <td>
+                    {% if cell_data.is_current_month %}
+                        <span class="cumulative-balance-display {% if cell_data.is_negative %}negative{% endif %}"
+                              id="cumulative-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Действия</th>
+            {% for cell_data in week.actions %}
+                <td>
+                    {% if cell_data.is_current_month %}
+                        <div class="actions-container" id="actions-{{ cell_data.id }}">
+                            <button type="button" class="btn-action btn-add-time" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;">+
+                            </button>
+                            <button type="button" class="btn-action btn-add-mk" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;">МК
+                            </button>
+                            <button type="button" class="btn-action btn-edit" data-day-id="{{ cell_data.id }}">...
+                            </button>
+                            <button type="button" class="btn-action btn-save" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;">✔
+                            </button>
+                            <button type="button" class="btn-action btn-cancel" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;">✘
+                            </button>
+                        </div>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+        </tbody>
+    </table>
+{% endfor %}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const csrftoken = getCookie('csrftoken');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const randomThemeBtn = document.getElementById('random-theme-btn');
+        const body = document.body;
+        const root = document.documentElement;
+
+        // --- Управление темами ---
+
+        // Функция для применения сохраненных цветов
+        function applySavedColors(colors) {
+            if (!colors) return;
+
+            const themeColors = JSON.parse(colors);
+            root.style.setProperty('--bg-color', themeColors.bgColor);
+            root.style.setProperty('--text-color', themeColors.textColor);
+            root.style.setProperty('--header-bg-color', themeColors.headerColor);
+            root.style.setProperty('--table-border-color', themeColors.tableBorderColor);
+            root.style.setProperty('--row-header-bg-color', themeColors.rowHeaderColor);
+            root.style.setProperty('--month-balance-bg', themeColors.monthBalanceBg);
+            root.style.setProperty('--month-balance-text', themeColors.monthBalanceText);
+            root.style.setProperty('--positive-color', themeColors.positiveColor);
+            root.style.setProperty('--negative-color', themeColors.negativeColor);
+            root.style.setProperty('--input-bg-color', themeColors.inputBgColor);
+            root.style.setProperty('--input-text-color', themeColors.inputTextcolor);
+            root.style.setProperty('--input-border-color', themeColors.inputBorderColor);
+        }
+
+        // Проверяем, есть ли сохраненная тема при загрузке страницы
+        const savedTheme = localStorage.getItem('theme');
+        const savedColors = localStorage.getItem('randomColors');
+
+        if (savedTheme === 'dark-theme') {
+            body.classList.add('dark-theme');
+        } else if (savedTheme === 'random-theme') {
+            body.classList.add('random-theme');
+            applySavedColors(savedColors);
+        }
+
+        // Обработчик для переключения между светлой и тёмной темой
+        themeToggleBtn.addEventListener('click', () => {
+            body.classList.toggle('dark-theme');
+            body.classList.remove('random-theme');
+
+            if (body.classList.contains('dark-theme')) {
+                localStorage.setItem('theme', 'dark-theme');
+            } else {
+                localStorage.removeItem('theme'); // Удаляем тему
+            }
+            localStorage.removeItem('randomColors'); // Очищаем сохраненные случайные цвета
+        });
+
+        // Функция для генерации случайного цвета в формате HEX
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Обработчик для случайной темы
+        randomThemeBtn.addEventListener('click', () => {
+            body.classList.add('random-theme');
+            body.classList.remove('dark-theme');
+
+            // Генерируем и сохраняем цвета
+            const themeColors = {
+                bgColor: getRandomColor(),
+                textColor: getRandomColor(),
+                headerColor: getRandomColor(),
+                tableBorderColor: getRandomColor(),
+                rowHeaderColor: getRandomColor(),
+                monthBalanceBg: getRandomColor(),
+                monthBalanceText: getRandomColor(),
+                positiveColor: getRandomColor(),
+                negativeColor: getRandomColor(),
+                inputBgColor: getRandomColor(),
+                inputTextcolor: getRandomColor(),
+                inputBorderColor: getRandomColor()
+            };
+
+            // Применяем цвета к переменным CSS
+            applySavedColors(JSON.stringify(themeColors));
+
+            // Сохраняем тему и цвета в localStorage
+            localStorage.setItem('theme', 'random-theme');
+            localStorage.setItem('randomColors', JSON.stringify(themeColors));
+        });
+
+        // --- Основная функциональность страницы ---
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie) {
+                document.cookie.split(';').forEach(cookie => {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                });
+            }
+            return cookieValue;
+        }
+
+        // Навигация
+        document.getElementById('prev-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        function getDayElements(dayId) {
+            const elements = {};
+            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
+            elements.dayTypeDisplay = document.querySelector(`#day-type-display-${dayId}`);
+            elements.timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
+            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
+            elements.cumulativeBalanceDisplay = document.getElementById(`cumulative-balance-${dayId}`);
+            const actionButtonContainer = document.querySelector(`#actions-${dayId}`);
+            elements.editBtn = actionButtonContainer.querySelector('.btn-edit');
+            elements.saveBtn = actionButtonContainer.querySelector('.btn-save');
+            elements.addNewPairBtn = actionButtonContainer.querySelector('.btn-add-time');
+            elements.addNewMKBtn = actionButtonContainer.querySelector('.btn-add-mk');
+            elements.cancelBtn = actionButtonContainer.querySelector('.btn-cancel');
+            return elements;
+        }
+
+        // Редактирование
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+
+                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
+                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'inline-block';
+
+                elements.timePairGroups.forEach(pairGroup => {
+                    pairGroup.querySelectorAll('.time-input').forEach(input => input.style.display = 'inline-block');
+                    pairGroup.querySelectorAll('.time-display').forEach(span => span.style.display = 'none');
+
+                    const removeButton = pairGroup.querySelector('.btn-remove-pair');
+                    if (removeButton) {
+                        removeButton.style.display = 'inline-block';
+                    }
+                });
+
+                elements.saveBtn.style.display = 'inline-block';
+                elements.addNewPairBtn.style.display = 'inline-block';
+                elements.addNewMKBtn.style.display = 'inline-block';
+                elements.cancelBtn.style.display = 'inline-block';
+                elements.editBtn.style.display = 'none';
+            });
+        });
+
+        // Отмена
+        document.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', function () {
+                location.reload();
+            });
+        });
+
+        // Сохранение
+        document.querySelectorAll('.btn-save').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const timeData = {
+                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
+                    time_entries: [],
+                    dayId: dayId
+                };
+                const updatedPairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+                let order = 0;
+                updatedPairGroups.forEach(pairGroup => {
+                    const entryInput = pairGroup.querySelector('.entry-input');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+                    const entryType = pairGroup.dataset.entryType || 'default';
+
+                    pairGroup.dataset.order = order;
+                    pairGroup.querySelector('.time-entry-row').dataset.order = order;
+
+                    if (entryInput && entryInput.value) {
+                        timeData.time_entries.push({
+                            type: 'EG',
+                            time: entryInput.value,
+                            order: order,
+                            entry_type: entryType
+                        });
+                    }
+                    if (exitInput && exitInput.value) {
+                        timeData.time_entries.push({
+                            type: 'OG',
+                            time: exitInput.value,
+                            order: order,
+                            entry_type: entryType
+                        });
+                    }
+                    order++;
+                });
+                fetch('{% url "update_work_times" %}', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify(timeData)
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Данные успешно сохранены!');
+                            location.reload();
+                        } else {
+                            alert('Ошибка сохранения: ' + data.message);
+                        }
+                    })
+                    .catch(err => alert('Ошибка: ' + err));
+            });
+        });
+
+        // Добавить пару
+        document.querySelectorAll('.btn-add-time').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newOrder = elements.timePairGroups.length;
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group default-highlight';
+                newPair.dataset.dayId = dayId;
+                newPair.dataset.order = newOrder;
+                newPair.dataset.entryType = 'default';
+                newPair.innerHTML = `
+                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
+                    <span class="time-display entry-display" style="display:none;">-</span>
+                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                    <span class="time-display exit-display" style="display:none;">-</span>
+                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
+                </div>`;
+                const timeTd = elements.timePairGroups[0].closest('td');
+                timeTd.appendChild(newPair);
+            });
+        });
+
+        // Добавить МК
+        document.querySelectorAll('.btn-add-mk').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newOrder = elements.timePairGroups.length;
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group mk-highlight';
+                newPair.dataset.dayId = dayId;
+                newPair.dataset.order = newOrder;
+                newPair.dataset.entryType = 'mk';
+                newPair.innerHTML = `
+                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
+                    <span class="time-display entry-display" style="display:none;">-</span>
+                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                    <span class="time-display exit-display" style="display:none;">-</span>
+                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
+                </div>`;
+                const timeTd = elements.timePairGroups[0].closest('td');
+                timeTd.appendChild(newPair);
+            });
+        });
+
+        // Удалить конкретную пару
+        document.addEventListener('click', function (e) {
+            if (e.target.classList.contains('btn-remove-pair')) {
+                const pairGroup = e.target.closest('.time-pair-group');
+                if (pairGroup) {
+                    pairGroup.remove();
+                }
+            }
+        });
+
+        // Обработчик для импорта данных
+        document.getElementById('upload-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const statusDiv = document.getElementById('import-status');
+            statusDiv.innerHTML = 'Импортирую... Пожалуйста, подождите.';
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        statusDiv.innerHTML = `<span style="color: green;">${data.message}</span>`;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: red;">${data.message}</span>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<span style="color: red;">Произошла ошибка: ${error}</span>`;
+                });
+        });
+    });
+</script>
+
+</body>
+</html>

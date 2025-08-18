@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочее время</title>
+    <style>
+        table {
+        border-collapse: collapse;
+        width: 100%; /* Устанавливаем ширину таблицы на 100% */
+        margin: 20px auto;
+        font-family: Arial, sans-serif;
+        font-size: 0.9em;
+        table-layout: fixed; /* Добавляем это свойство */
+        }
+        .week-table thead th {
+            background-color: #e6e6e6;
+            color: #333;
+            font-weight: bold;
+            padding: 8px 4px;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 6px 4px;
+            vertical-align: top;
+            white-space: normal;
+        }
+        .row-header {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding-left: 10px;
+            width: 120px;
+            vertical-align: middle;
+        }
+        h1 { text-align: center; }
+        .time-pair-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-bottom: 3px;
+            padding: 3px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .time-display, .time-input {
+            width: 70px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .time-entry-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .time-label {
+            font-size: 0.8em;
+            color: #555;
+            min-width: 35px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .btn-action {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 2px;
+        }
+         .time-pair-group,
+         .actions-container {
+             display: flex;
+             flex-direction: column; /* Элементы будут выстраиваться вертикально */
+             gap: 3px;
+             margin: 3px auto; /* Центрируем контейнер */
+             padding: 3px;
+             border: 1px solid #eee;
+             border-radius: 4px;
+             flex-wrap: wrap; /* Позволяет элементам переноситься на новую строку при необходимости */
+         }
+
+         .actions-container {
+             flex-direction: row; /* Для кнопок лучше горизонтальное расположение */
+             justify-content: center;
+         }
+
+         .time-entry-row {
+             display: flex;
+             flex-wrap: wrap; /* Разрешает перенос полей ввода */
+             justify-content: center;
+             gap: 3px;
+         }
+
+        .btn-save { background-color: #28a745; }
+        .btn-cancel { background-color: #dc3545; }
+        .total-time-display { font-weight: bold; color: #1976d2; }
+        .day-balance-display { font-weight: bold; color: forestgreen; }
+        .day-balance-display.negative { color: red; }
+        .month-balance-container {
+            display: flex; justify-content: center; align-items: center;
+            gap: 15px; margin: 20px auto; font-size: 1.2em; font-weight: bold;
+            background-color: #e0f2f7; padding: 10px 20px; border-radius: 8px;
+        }
+        .month-balance-display.negative { color: red; }
+        .month-balance-display.positive { color: green; }
+        .month-navigation {
+            display: flex; justify-content: center; gap: 20px; margin: 20px 0;
+        }
+        .cumulative-balance-display {
+            font-weight: bold;
+            color: forestgreen;
+        }
+        .cumulative-balance-display.negative {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="user-info">
+        {% if current_user.is_authenticated %}
+            Привет, {{ current_user.username }}!
+        {% else %}
+            Привет, Гость!
+        {% endif %}
+    </div>
+    <div class="auth-links">
+        {% if current_user.is_authenticated %}
+            <a href="{% url 'logout' %}">Выйти</a>
+        {% else %}
+            <a href="{% url 'login' %}">Войти</a>
+            <a href="{% url 'register' %}">Зарегистрироваться</a>
+        {% endif %}
+    </div>
+    <div class="import-section">
+        <h2>Импорт данных из файла</h2>
+        <form id="upload-form" method="post" enctype="multipart/form-data"action="{% url 'import_data' %}">
+            {% csrf_token %}
+            <input type="file" name="file" id="file-input" required>
+            <button type="submit">Загрузить и импортировать</button>
+        </form>
+        <div id="import-status"></div>
+    </div>
+</div>
+
+<h1>Рабочее время сотрудника</h1>
+
+<div class="month-balance-container">
+    <span class="label">Баланс за {{ current_month_display }}:</span>
+    <span id="month-balance-total"
+          class="month-balance-display {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
+        {{ total_month_balance }}
+    </span>
+</div>
+
+<div class="month-navigation">
+    <button class="nav-btn" id="prev-month">← Предыдущий месяц</button>
+    <span class="current-month">{{ current_month_display }}</span>
+    <button class="nav-btn" id="next-month">Следующий месяц →</button>
+</div>
+
+
+{% for week in weekly_table_rows %}
+    <table class="week-table">
+        <thead>
+            <tr>
+                <th class="row-header"></th>
+                {% for day in week.dates %}
+                    <th class="{% if not day.is_current_month %}other-month-day{% endif %}">
+                        {{ day.date_obj|date:'D d.m' }}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th class="row-header">Тип дня</th>
+                {% for cell_data in week.types %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="day-type-display" id="day-type-display-{{ cell_data.id }}">
+                                {{ cell_data.display }}
+                            </span>
+                            <select id="day-type-{{ cell_data.id }}" class="day-type-select" data-day-id="{{ cell_data.id }}" style="display:none;">
+                                <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Рабочий день</option>
+                                <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной</option>
+                                <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день</option>
+                                <option value="HD" {% if cell_data.type == 'HD' %}selected{% endif %}>Праздник</option>
+                                <option value="VL" {% if cell_data.type == 'VL' %}selected{% endif %}>Отпуск</option>
+                            </select>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Время</th>
+                {% for cell_data in week.times %}
+                    <td>
+                        {% if cell_data %}
+                            {% for time_pair in cell_data %}
+                                <div class="time-pair-group" data-order="{{ time_pair.order }}" data-day-id="{{ time_pair.day_id }}">
+                                    <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}" data-order="{{ time_pair.order }}">
+                                        <span class="time-display entry-display">{{ time_pair.entry_time|default:"-" }}</span>
+                                        <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}" style="display:none;">
+                                        <span class="time-display exit-display">{{ time_pair.exit_time|default:"-" }}</span>
+                                        <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}" style="display:none;">
+                                    </div>
+                                    <button type="button" class="btn-action btn-remove-pair" style="display:none;">-</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Итого за день</th>
+                {% for cell_data in week.total_time %}
+                    <td>
+                        {% if cell_data %}
+                            <span class="total-time-display" id="total-time-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Баланс за день</th>
+                {% for cell_data in week.day_balance %}
+                    <td>
+                        {% if cell_data %}
+                            <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}" id="day-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+             <tr>
+                <th class="row-header">Накоп. баланс</th>
+                {% for cell_data in week.cumulative_balance %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="cumulative-balance-display {% if cell_data.is_negative %}negative{% endif %}" id="cumulative-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Действия</th>
+                {% for cell_data in week.actions %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <div class="actions-container" id="actions-{{ cell_data.id }}">
+                                <button type="button" class="btn-action btn-edit" data-day-id="{{ cell_data.id }}">Изменить</button>
+                                <button type="button" class="btn-action btn-save" data-day-id="{{ cell_data.id }}" style="display:none;">✔</button>
+                                <button type="button" class="btn-action btn-add-time" data-day-id="{{ cell_data.id }}" style="display:none;">+</button>
+                                <button type="button" class="btn-action btn-remove-pair" data-day-id="{{ cell_data.id }}" style="display:none;"> - </button>
+                                <button type="button" class="btn-action btn-cancel" data-day-id="{{ cell_data.id }}" style="display:none;">✘</button>
+                            </div>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+{% endfor %}
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie) {
+            document.cookie.split(';').forEach(cookie => {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            });
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const csrftoken = getCookie('csrftoken');
+
+        // Навигация
+        document.getElementById('prev-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        function getDayElements(dayId) {
+            const elements = {};
+            // Correctly get both the display span and the select dropdown
+            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
+            elements.dayTypeDisplay = document.querySelector(`#day-type-display-${dayId}`);
+            elements.timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
+            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
+            elements.cumulativeBalanceDisplay = document.getElementById(`cumulative-balance-${dayId}`);
+            const actionButtonContainer = document.querySelector(`#actions-${dayId}`);
+            elements.editBtn = actionButtonContainer.querySelector('.btn-edit');
+            elements.saveBtn = actionButtonContainer.querySelector('.btn-save');
+            elements.addNewPairBtn = actionButtonContainer.querySelector('.btn-add-time');
+            elements.removePairBtn = actionButtonContainer.querySelector('.btn-remove-pair');
+            elements.cancelBtn = actionButtonContainer.querySelector('.btn-cancel');
+            return elements;
+        }
+
+        // Редактирование
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+
+                // Скрыть span, показать select
+                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
+                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'inline-block';
+
+                // Переключение для времени
+                elements.timePairGroups.forEach(pairGroup => {
+                    pairGroup.querySelectorAll('.time-input').forEach(input => input.style.display = 'inline-block');
+                    pairGroup.querySelectorAll('.time-display').forEach(span => span.style.display = 'none');
+                });
+                elements.saveBtn.style.display = 'inline-block';
+                elements.addNewPairBtn.style.display = 'inline-block';
+                elements.removePairBtn.style.display = 'inline-block';
+                elements.cancelBtn.style.display = 'inline-block';
+                elements.editBtn.style.display = 'none';
+            });
+        });
+
+        // Отмена
+        document.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', function () {
+                location.reload();
+            });
+        });
+
+        // Сохранение
+        document.querySelectorAll('.btn-save').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const timeData = {
+                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
+                    time_entries: [],
+                    dayId: dayId
+                };
+                elements.timePairGroups.forEach(pairGroup => {
+                    const entryInput = pairGroup.querySelector('.entry-input');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+                    if (entryInput && entryInput.value) {
+                        timeData.time_entries.push({ type: 'EG', time: entryInput.value, order: parseInt(pairGroup.dataset.order) });
+                    }
+                    if (exitInput && exitInput.value) {
+                        timeData.time_entries.push({ type: 'OG', time: exitInput.value, order: parseInt(pairGroup.dataset.order) });
+                    }
+                });
+                fetch('{% url "update_work_times" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                    body: JSON.stringify(timeData)
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Обновляем отображение только для текущего дня
+                        if (elements.totalTimeDisplay) elements.totalTimeDisplay.textContent = data.new_total_time;
+                        if (elements.dayBalanceDisplay) {
+                            elements.dayBalanceDisplay.textContent = data.new_day_balance;
+                            elements.dayBalanceDisplay.classList.toggle('negative', data.is_negative_day_balance);
+                        }
+                        if (elements.cumulativeBalanceDisplay) {
+                            elements.cumulativeBalanceDisplay.textContent = data.new_cumulative_balance;
+                            elements.cumulativeBalanceDisplay.classList.toggle('negative', data.is_cumulative_balance_negative);
+                        }
+
+                        // Обновляем отображение типа дня
+                        if (elements.dayTypeDisplay && elements.dayTypeSelect) {
+                            elements.dayTypeDisplay.textContent = elements.dayTypeSelect.options[elements.dayTypeSelect.selectedIndex].text;
+                        }
+
+                        // Обновляем общий баланс за месяц
+                        const monthBalanceElement = document.getElementById('month-balance-total');
+                        if (monthBalanceElement) {
+                            monthBalanceElement.textContent = data.total_month_balance;
+                            monthBalanceElement.classList.toggle('negative', data.is_month_balance_negative);
+                            monthBalanceElement.classList.toggle('positive', !data.is_month_balance_negative);
+                        }
+
+                        // Переключаем кнопки и поля обратно
+                        const allInputs = document.querySelectorAll('.time-input');
+                        allInputs.forEach(input => input.style.display = 'none');
+                        const allDisplays = document.querySelectorAll('.time-display');
+                        allDisplays.forEach(span => span.style.display = 'inline');
+
+                        // Скрыть select, показать span
+                        if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'none';
+                        if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'inline-block';
+
+                        elements.timePairGroups.forEach(pairGroup => {
+                            pairGroup.querySelector('.btn-remove-pair').style.display = 'inline-block';
+                        });
+                        const allActionButtons = document.querySelectorAll('.actions-container button');
+                        allActionButtons.forEach(btn => {
+                            if (btn.classList.contains('btn-edit')) {
+                                btn.style.display = 'inline-block';
+                            } else {
+                                btn.style.display = 'none';
+                            }
+                        });
+
+                        alert('Данные успешно сохранены!');
+                        location.reload(); // Это перезагрузит страницу
+                    } else {
+                        alert('Ошибка сохранения: ' + data.message);
+                    }
+                })
+                .catch(err => alert('Ошибка: ' + err));
+            });
+        });
+
+        // Добавить пару
+        document.querySelectorAll('.btn-add-time').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newOrder = elements.timePairGroups.length;
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group';
+                newPair.dataset.dayId = dayId;
+                newPair.dataset.order = newOrder;
+                newPair.innerHTML = `
+                    <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
+                        <span class="time-display entry-display" style="display:none;">-</span>
+                        <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                        <span class="time-display exit-display" style="display:none;">-</span>
+                        <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                    </div>`;
+                elements.timePairGroups[0].closest('td').appendChild(newPair);
+            });
+        });
+
+        // Удалить пару
+        document.querySelectorAll('.btn-remove-pair').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                if (elements.timePairGroups.length > 1) {
+                    elements.timePairGroups[elements.timePairGroups.length - 1].remove();
+                } else if (elements.timePairGroups.length === 1) {
+                    const pair = elements.timePairGroups[0];
+                    pair.querySelector('.entry-input').value = '';
+                    pair.querySelector('.exit-input').value = '';
+                }
+            });
+        });
+    });
+
+    document.getElementById('upload-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const formData = new FormData(form);
+        const statusDiv = document.getElementById('import-status');
+
+        statusDiv.innerHTML = 'Импортирую... Пожалуйста, подождите.';
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                statusDiv.innerHTML = `<span style="color: green;">${data.message}</span>`;
+                setTimeout(() => {
+                    window.location.reload();
+                    {#location.reload(); // Это перезагрузит страницу#}
+                }, 2000);
+            } else {
+                statusDiv.innerHTML = `<span style="color: red;">${data.message}</span>`;
+            }
+        })
+        .catch(error => {
+            statusDiv.innerHTML = `<span style="color: red;">Произошла ошибка: ${error}</span>`;
+        });
+    });
+</script>
+
+</body>
+</html>

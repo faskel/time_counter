@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочее время</title>
+    <style>
+        table {
+            border-collapse: collapse;
+            width: 95%;
+            margin: 20px auto;
+            font-family: Arial, sans-serif;
+            font-size: 0.9em;
+            table-layout: fixed;
+        }
+        .week-table thead th {
+            background-color: #e6e6e6;
+            color: #333;
+            font-weight: bold;
+            padding: 8px 4px;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 6px 4px;
+            vertical-align: top;
+            white-space: normal;
+        }
+        .row-header {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding-left: 10px;
+            width: 100px;
+            vertical-align: middle;
+        }
+        h1 { text-align: center; }
+        .time-pair-group {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            margin-bottom: 3px;
+            padding: 3px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .time-display, .time-input {
+            width: 70px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+        .time-entry-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+        }
+        .time-label {
+            font-size: 0.8em;
+            color: #555;
+            min-width: 35px;
+            text-align: right;
+            font-weight: bold;
+        }
+        .btn-action {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 2px;
+        }
+        .btn-save { background-color: #28a745; }
+        .btn-cancel { background-color: #dc3545; }
+        .total-time-display { font-weight: bold; color: #1976d2; }
+        .day-balance-display { font-weight: bold; color: forestgreen; }
+        .day-balance-display.negative { color: red; }
+        .month-balance-container {
+            display: flex; justify-content: center; align-items: center;
+            gap: 15px; margin: 20px auto; font-size: 1.2em; font-weight: bold;
+            background-color: #e0f2f7; padding: 10px 20px; border-radius: 8px;
+        }
+        .month-balance-display.negative { color: red; }
+        .month-balance-display.positive { color: green; }
+        .month-navigation {
+            display: flex; justify-content: center; gap: 20px; margin: 20px 0;
+        }
+        .cumulative-balance-display {
+            font-weight: bold;
+            color: forestgreen;
+        }
+        .cumulative-balance-display.negative {
+            color: red;
+        }
+        .actions-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <div class="user-info">
+        {% if current_user.is_authenticated %}
+            Привет, {{ current_user.username }}!
+        {% else %}
+            Привет, Гость!
+        {% endif %}
+    </div>
+    <div class="auth-links">
+        {% if current_user.is_authenticated %}
+            <a href="{% url 'logout' %}">Выйти</a>
+        {% else %}
+            <a href="{% url 'login' %}">Войти</a>
+            <a href="{% url 'register' %}">Зарегистрироваться</a>
+        {% endif %}
+    </div>
+    <div class="import-section">
+        <h2>Импорт данных из файла</h2>
+        <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'import_data' %}">
+            {% csrf_token %}
+            <input type="file" name="file" id="file-input" required>
+            <button type="submit">Загрузить и импортировать</button>
+        </form>
+        <div id="import-status"></div>
+    </div>
+</div>
+
+<h1>Рабочее время сотрудника</h1>
+
+<div class="month-balance-container">
+    <span class="label">Баланс за {{ current_month_display }}:</span>
+    <span id="month-balance-total"
+          class="month-balance-display {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
+        {{ total_month_balance }}
+    </span>
+</div>
+
+<div class="month-navigation">
+    <button class="nav-btn" id="prev-month">← Предыдущий месяц</button>
+    <span class="current-month">{{ current_month_display }}</span>
+    <button class="nav-btn" id="next-month">Следующий месяц →</button>
+</div>
+
+
+{% for week in weekly_table_rows %}
+    <table class="week-table">
+        <thead>
+            <tr>
+                <th class="row-header"></th>
+                {% for day in week.dates %}
+                    <th class="{% if not day.is_current_month %}other-month-day{% endif %}">
+                        {{ day.date_obj|date:'D d.m' }}
+                    </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <th class="row-header">Тип дня</th>
+                {% for cell_data in week.types %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="day-type-display" id="day-type-display-{{ cell_data.id }}">
+                                {{ cell_data.display }}
+                            </span>
+                            <select id="day-type-{{ cell_data.id }}" class="day-type-select" data-day-id="{{ cell_data.id }}" style="display:none;">
+                                <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Рабочий день</option>
+                                <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной</option>
+                                <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день</option>
+                                <option value="HD" {% if cell_data.type == 'HD' %}selected{% endif %}>Праздник</option>
+                                <option value="VL" {% if cell_data.type == 'VL' %}selected{% endif %}>Отпуск</option>
+                            </select>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Время</th>
+                {% for cell_data in week.times %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            {% for time_pair in cell_data %}
+                                <div class="time-pair-group" data-order="{{ time_pair.order }}" data-day-id="{{ time_pair.day_id }}">
+                                    <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}" data-order="{{ time_pair.order }}">
+                                        <span class="time-display entry-display">{{ time_pair.entry_time|default:"-" }}</span>
+                                        <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}" style="display:none;">
+                                        <span class="time-display exit-display">{{ time_pair.exit_time|default:"-" }}</span>
+                                        <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}" style="display:none;">
+                                    </div>
+                                    <button type="button" class="btn-action btn-remove-pair" style="display:none;">-</button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Итого за день</th>
+                {% for cell_data in week.total_time %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="total-time-display" id="total-time-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Баланс за день</th>
+                {% for cell_data in week.day_balance %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}" id="day-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+             <tr>
+                <th class="row-header">Накоп. баланс</th>
+                {% for cell_data in week.cumulative_balance %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <span class="cumulative-balance-display {% if cell_data.is_negative %}negative{% endif %}" id="cumulative-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+
+            <tr>
+                <th class="row-header">Действия</th>
+                {% for cell_data in week.actions %}
+                    <td>
+                        {% if cell_data.is_current_month %}
+                            <div class="actions-container" id="actions-{{ cell_data.id }}">
+                                <button type="button" class="btn-action btn-add-time" data-day-id="{{ cell_data.id }}" style="display:none;">+</button>
+                                <button type="button" class="btn-action btn-edit" data-day-id="{{ cell_data.id }}">...</button>
+                                <button type="button" class="btn-action btn-save" data-day-id="{{ cell_data.id }}" style="display:none;">✔</button>
+                                <button type="button" class="btn-action btn-cancel" data-day-id="{{ cell_data.id }}" style="display:none;">✘</button>
+                            </div>
+                        {% endif %}
+                    </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+{% endfor %}
+
+
+<script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie) {
+            document.cookie.split(';').forEach(cookie => {
+                cookie = cookie.trim();
+                if (cookie.startsWith(name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                }
+            });
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const csrftoken = getCookie('csrftoken');
+
+        // Навигация
+        document.getElementById('prev-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        function getDayElements(dayId) {
+            const elements = {};
+            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
+            elements.dayTypeDisplay = document.querySelector(`#day-type-display-${dayId}`);
+            elements.timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
+            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
+            elements.cumulativeBalanceDisplay = document.getElementById(`cumulative-balance-${dayId}`);
+            const actionButtonContainer = document.querySelector(`#actions-${dayId}`);
+            elements.editBtn = actionButtonContainer.querySelector('.btn-edit');
+            elements.saveBtn = actionButtonContainer.querySelector('.btn-save');
+            elements.addNewPairBtn = actionButtonContainer.querySelector('.btn-add-time');
+            elements.addMkBtn = actionButtonContainer.querySelector('.btn-add-mk'); // Новая кнопка
+            elements.cancelBtn = actionButtonContainer.querySelector('.btn-cancel');
+            return elements;
+        }
+
+        // Редактирование
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+
+                // Скрыть span, показать select
+                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
+                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'inline-block';
+
+                // Переключение для времени и кнопок удаления
+                elements.timePairGroups.forEach(pairGroup => {
+                    pairGroup.querySelectorAll('.time-input').forEach(input => input.style.display = 'inline-block');
+                    pairGroup.querySelectorAll('.time-display').forEach(span => span.style.display = 'none');
+
+                    const removeButton = pairGroup.querySelector('.btn-remove-pair');
+                    if (removeButton) {
+                        removeButton.style.display = 'inline-block';
+                    }
+                });
+
+                elements.saveBtn.style.display = 'inline-block';
+                elements.addNewPairBtn.style.display = 'inline-block';
+                elements.addMkBtn.style.display = 'inline-block'; // Показываем кнопку "МК"
+                elements.cancelBtn.style.display = 'inline-block';
+                elements.editBtn.style.display = 'none';
+            });
+        });
+
+        // Отмена
+        document.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', function () {
+                location.reload();
+            });
+        });
+
+        // Сохранение
+        document.querySelectorAll('.btn-save').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+
+                const timePairs = [];
+                const updatedPairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+
+                updatedPairGroups.forEach(pairGroup => {
+                    const entryInput = pairGroup.querySelector('.entry-input');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+                    const isMk = pairGroup.classList.contains('mk'); // Проверяем, есть ли класс 'mk'
+
+                    if (entryInput.value || exitInput.value) {
+                        timePairs.push({
+                            entry: entryInput.value,
+                            exit: exitInput.value,
+                            type: isMk ? 'MK' : 'Normal'
+                        });
+                    }
+                });
+
+                const timeData = {
+                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
+                    time_pairs: timePairs,
+                    dayId: dayId
+                };
+
+                fetch('{% url "update_work_times" %}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+                    body: JSON.stringify(timeData)
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Данные успешно сохранены!');
+                        location.reload();
+                    } else {
+                        alert('Ошибка сохранения: ' + data.message);
+                    }
+                })
+                .catch(err => alert('Ошибка: ' + err));
+            });
+        });
+
+        // Добавить обычную пару (+)
+        document.querySelectorAll('.btn-add-time').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group';
+                newPair.dataset.dayId = dayId;
+
+                newPair.innerHTML = `
+                    <div class="time-entry-row" data-day-id="${dayId}">
+                        <span class="time-display entry-display" style="display:none;">-</span>
+                        <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                        <span class="time-display exit-display" style="display:none;">-</span>
+                        <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                        <button type="button" class="btn-action btn-remove-pair">-</button>
+                    </div>
+                `;
+                const parentTd = elements.timePairGroups[0] ? elements.timePairGroups[0].closest('td') : document.querySelector(`#total-time-${dayId}`).closest('td');
+                if (parentTd) {
+                    parentTd.insertBefore(newPair, parentTd.querySelector('.actions-container'));
+                }
+            });
+        });
+
+        // Добавить пару "МК"
+        document.querySelectorAll('.btn-add-mk').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group mk'; // Добавляем класс 'mk'
+                newPair.dataset.dayId = dayId;
+
+                newPair.innerHTML = `
+                    <div class="time-entry-row" data-day-id="${dayId}">
+                        <span class="time-display entry-display" style="display:none;">-</span>
+                        <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                        <span class="time-display exit-display" style="display:none;">-</span>
+                        <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                        <button type="button" class="btn-action btn-remove-pair">-</button>
+                    </div>
+                `;
+                const parentTd = elements.timePairGroups[0] ? elements.timePairGroups[0].closest('td') : document.querySelector(`#total-time-${dayId}`).closest('td');
+                if (parentTd) {
+                    parentTd.insertBefore(newPair, parentTd.querySelector('.actions-container'));
+                }
+            });
+        });
+
+        // Удалить конкретную пару
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('btn-remove-pair')) {
+                const pairGroup = e.target.closest('.time-pair-group');
+                if (pairGroup) {
+                    pairGroup.remove();
+                }
+            }
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', function
+</body>
+</html>
