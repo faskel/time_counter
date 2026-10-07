@@ -1,0 +1,32 @@
+{
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.1"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.1"
+  },
+  "name": "djangoproject",
+  "version": "1.0.0",
+  "description": "��#\u0000 \u0000t\u0000i\u0000m\u0000e\u0000_\u0000c\u0000o\u0000u\u0000n\u0000t\u0000e\u0000r\u0000\r\u0000 \u0000",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "npx tailwindcss -i ./static/css/tailwind.css -o ./static/css/main.css",
+    "watch:css": "npx tailwindcss -i ./static/css/tailwind.css -o ./static/css/main.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/faskel/time_counter.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/faskel/time_counter/issues"
+  },
+  "homepage": "https://github.com/faskel/time_counter#readme"
+}

@@ -10,9 +10,18 @@ class UserRegisterForm(UserCreationForm):
     Форма регистрации пользователя, основанная на встроенной UserCreationForm.
     Использует вашу кастомную модель User.
     """
+    first_name = forms.CharField(label='Имя', max_length=150, required=True)
+    last_name = forms.CharField(label='Фамилия', max_length=150, required=True)
+    account_type = forms.ChoiceField(
+        label='Тип учетной записи',
+        choices=User.ACCOUNT_TYPE_CHOICES,
+        required=True
+    )
+
     class Meta:
         model = User
-        fields = ('username',) # Или 'login', если вы используете его вместо username
+        fields = UserCreationForm.Meta.fields + ('first_name', 'last_name','account_type',)
+        # fields = ('username',) # Или 'login', если вы используете его вместо username
 
     # Можно добавить дополнительные поля, если они есть в вашей модели User
     # Например:

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="ru-ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочее время</title>
+    <style>
+        /* Общие стили таблицы */
+        table {
+            border-collapse: collapse;
+            width: 95%;
+            margin: 20px auto;
+            font-family: Arial, sans-serif;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: center;
+            padding: 8px;
+            vertical-align: top;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            position: sticky;
+            top: 0;
+            white-space: nowrap; /* Чтобы дни недели не переносились */
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        h1 {
+            text-align: center;
+            font-family: Arial, sans-serif;
+            color: #333;
+        }
+
+        /* Общая обертка для пары вход/выход */
+        .time-pair-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 5px;
+            padding: 5px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .time-pair-group:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Общие стили для отображаемых и вводимых времен */
+        .time-display, .time-input {
+            width: 80px;
+            text-align: center;
+        }
+
+        /* Стили для метки + поля */
+        .time-entry-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .time-label {
+            font-size: 0.9em;
+            color: #555;
+            min-width: 40px;
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            justify-content: center;
+            margin-top: 5px;
+        }
+
+        .save-btn, .edit-btn, .add-new-pair-btn, .remove-pair-btn, .nav-btn {
+            padding: 3px 8px;
+            cursor: pointer;
+            margin: 2px;
+        }
+
+        /* Цвета для типов дня */
+        .day-type-display.ND { color: #2e7d32; } /* Обычный день - Зеленый */
+        .day-type-display.WD { color: #d32f2f; } /* Выходной/Праздник - Красный */
+        .day-type-display.SMD { color: #ff8f00; } /* Короткий день - Оранжевый */
+
+        .day-type-select {
+            display: none;
+            width: 100%;
+        }
+
+        /* Стили для итогового времени и баланса */
+        .total-time-display {
+            font-weight: bold;
+            color: #1976d2; /* Итого за день - Синий */
+        }
+
+        .day-balance-display {
+            font-weight: bold;
+        }
+        .day-balance-display.negative {
+            color: red;
+        }
+        .month-balance-display {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-top: 20px;
+        }
+        .month-balance-display.negative {
+            color: red;
+        }
+
+        /* Навигация по неделям */
+        .week-navigation {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .current-week {
+            font-weight: bold;
+            padding: 0 10px;
+        }
+
+        /* Хедер с информацией о пользователе */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+        .user-info {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        .auth-links a {
+            margin-left: 15px;
+            text-decoration: none;
+            color: #007bff;
+        }
+        .auth-links a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="user-info">
+            {% if current_user.is_authenticated %}
+                Привет, {{ current_user.username }}!
+            {% else %}
+                Привет, Гость!
+            {% endif %}
+        </div>
+        <div class="auth-links">
+            {% if current_user.is_authenticated %}
+                <a href="{% url 'logout' %}">Выйти</a>
+            {% else %}
+                <a href="{% url 'login' %}">Войти</a>
+                <a href="{% url 'register' %}">Зарегистрироваться</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <h1>Рабочее время сотрудника</h1>
+
+    <div class="week-navigation">
+        <button class="nav-btn" id="prev-week">← Предыдущая неделя</button>
+        <span class="current-week">{{ current_week_range }}</span>
+        <button class="nav-btn" id="next-week">Следующая неделя →</button>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th></th> {# Пустая ячейка для первого столбца заголовков строк #}
+                {% for day_name in days_of_week_names %}
+                    <th>{{ day_name }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for row_key, row_data in table_rows.items %}
+                <tr data-row-key="{{ row_key }}">
+                    <th>{{ row_data.label }}</th> {# Заголовок строки (например, "Тип дня", "Время" и т.д.) #}
+                    {% for cell_data in row_data.data %}
+                        <td>
+                            {% if row_key == 'type' %}
+                                <span class="day-type-display {{ cell_data.type }}" data-day-id="{{ cell_data.id }}">
+                                    {{ cell_data.display }}
+                                </span>
+                                <select class="day-type-select" data-day-id="{{ cell_data.id }}" style="display: none;">
+                                    <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Обычный день</option>
+                                    <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной/Праздник</option>
+                                    <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день</option>
+                                </select>
+                            {% elif row_key == 'times' %}
+                                {# cell_data здесь - это список time_pair-ов для данного дня #}
+                                {% for time_pair in cell_data %}
+                                    <div class="time-pair-group" data-order="{{ time_pair.order }}" data-day-id="{{ row_data.data.0.id }}">
+                                        <div class="time-entry-row">
+                                            <span class="time-label entry-label" style="display: none;">Вход:</span>
+                                            <span class="time-display entry-display">{{ time_pair.entry_time|default:"-" }}</span>
+                                            <input type="time" class="time-input entry-input"
+                                                value="{{ time_pair.entry_time }}" data-status-gate="EG" data-order="{{ time_pair.order }}" style="display: none;">
+                                        </div>
+                                        <div class="time-entry-row">
+                                            <span class="time-label exit-label" style="display: none;">Выход:</span>
+                                            <span class="time-display exit-display">{{ time_pair.exit_time|default:"-" }}</span>
+                                            <input type="time" class="time-input exit-input"
+                                                value="{{ time_pair.exit_time }}" data-status-gate="OG" data-order="{{ time_pair.order }}" style="display: none;">
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% elif row_key == 'total_time' %}
+                                <span class="total-time-display" id="total-time-{{ cell_data.id }}">
+                                    {{ cell_data.value }}
+                                </span>
+                            {% elif row_key == 'day_balance' %}
+                                <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}" id="day-balance-{{ cell_data.id }}">
+                                    {{ cell_data.value }}
+                                </span>
+                            {% elif row_key == 'actions' %}
+                                <div class="action-buttons">
+                                    <button class="edit-btn" data-day-id="{{ cell_data.id }}">Изменить</button>
+                                    <button class="save-btn" data-day-id="{{ cell_data.id }}" style="display: none;">Сохранить</button>
+                                    <button class="add-new-pair-btn" data-day-id="{{ cell_data.id }}" style="display: none;">+ Вход/Выход</button>
+                                    <button class="remove-pair-btn" data-day-id="{{ cell_data.id }}" style="display: none;">- Удалить пару</button>
+                                </div>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="month-balance-display">
+        Баланс за {{ current_month_name }}: <span id="month-balance-total" class="{% if is_month_balance_negative %}negative{% endif %}">{{ total_month_balance }}</span>
+    </div>
+
+    <script>
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const csrftoken = getCookie('csrftoken');
+
+        // --- Навигация по неделям ---
+        document.getElementById('prev-week').addEventListener('click', function() {
+            const currentDate = new Date('{{ selected_date }}'); // Используем выбранную дату из контекста
+            currentDate.setDate(currentDate.getDate() - 7);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        document.getElementById('next-week').addEventListener('click', function() {
+            const currentDate = new Date('{{ selected_date }}'); // Используем выбранную дату из контекста
+            currentDate.setDate(currentDate.getDate() + 7);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        // --- Функция для получения ячейки дня по dayId ---
+        function getDayCell(dayId) {
+            // В новой структуре каждая ячейка в строке представляет собой день.
+            // Нужно найти родительскую строку, затем найти нужную ячейку.
+            // Для кнопок "Действия" это прямо родительская td, для остальных - сложнее.
+            // Проще всего найти элемент по data-day-id внутри его секции
+            return document.querySelector(`td .day-type-display[data-day-id="${dayId}"]`).closest('td');
+        }
+
+        // --- Обновленная функция для получения всех элементов, относящихся к дню ---
+        function getDayElements(dayId) {
+            const elements = {};
+            // Тип дня
+            elements.dayTypeDisplay = document.querySelector(`.day-type-display[data-day-id="${dayId}"]`);
+            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
+
+            // Время (входы/выходы) - ищем внутри соответствующей td в строке 'times'
+            const timesRow = document.querySelector('tr[data-row-key="times"]');
+            const dayIndex = Array.from(timesRow.querySelectorAll('.time-pair-group[data-day-id]')).findIndex(el => el.dataset.dayId == dayId);
+
+            if (dayIndex !== -1) {
+                elements.timeCell = timesRow.querySelectorAll('td')[dayIndex + 1]; // +1 из-за первого th
+                elements.timePairGroups = elements.timeCell ? elements.timeCell.querySelectorAll('.time-pair-group') : [];
+            } else {
+                 elements.timePairGroups = [];
+            }
+
+            // Итого за день
+            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
+
+            // Баланс за день
+            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
+
+            // Кнопки действий
+            const actionButtonContainer = document.querySelector(`button.edit-btn[data-day-id="${dayId}"]`).closest('.action-buttons');
+            elements.editBtn = actionButtonContainer.querySelector('.edit-btn');
+            elements.saveBtn = actionButtonContainer.querySelector('.save-btn');
+            elements.addNewPairBtn = actionButtonContainer.querySelector('.add-new-pair-btn');
+            elements.removePairBtn = actionButtonContainer.querySelector('.remove-pair-btn');
+
+            return elements;
+        }
+
+
+        // --- Обработка кнопки "Изменить" ---
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const dayId = this.getAttribute('data-day-id');
+                const elements = getDayElements(dayId);
+
+                // Показываем поля ввода времени и их метки, скрываем отображаемое время
+                elements.timePairGroups.forEach(pairGroup => {
+                    pairGroup.querySelectorAll('.time-input').forEach(input => {
+                        input.style.display = 'block';
+                        if (!input.value) {
+                             input.value = new Date().toTimeString().slice(0, 5); // HH:MM
+                        }
+                    });
+                    pairGroup.querySelectorAll('.time-display').forEach(span => {
+                        span.style.display = 'none';
+                    });
+                    pairGroup.querySelectorAll('.time-label').forEach(label => {
+                        label.style.display = 'inline';
+                    });
+                });
+
+                // Показываем выбор типа дня, скрываем отображаемый тип
+                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'block';
+                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
+
+                // Показываем кнопки Сохранить, + Вход/Выход, - Удалить пару; скрываем Изменить
+                if (elements.saveBtn) elements.saveBtn.style.display = 'block';
+                if (elements.addNewPairBtn) elements.addNewPairBtn.style.display = 'block';
+                if (elements.removePairBtn) elements.removePairBtn.style.display = 'block';
+                if (elements.editBtn) elements.editBtn.style.display = 'none';
+            });
+        });
+
+        // --- Обработка кнопки "Сохранить" ---
+        document.querySelectorAll('.save-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const dayId = this.getAttribute('data-day-id');
+                const elements = getDayElements(dayId);
+
+                // Собираем данные для отправки
+                const timeData = {
+                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
+                    time_entries: [],
+                    dayId: dayId
+                };
+
+                // Собираем все входы и выходы
+                elements.timePairGroups.forEach((pairGroup) => {
+                    const entryInput = pairGroup.querySelector('.entry-input');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+
+                    if (entryInput && entryInput.value) {
+                        timeData.time_entries.push({
+                            type: 'EG',
+                            time: entryInput.value,
+                            order: parseInt(pairGroup.dataset.order)
+                        });
+                    }
+
+                    if (exitInput && exitInput.value) {
+                        timeData.time_entries.push({
+                            type: 'OG',
+                            time: exitInput.value,
+                            order: parseInt(pairGroup.dataset.order)
+                        });
+                    }
+                });
+
+                // Отправка данных на сервер
+                fetch('{% url "update_work_times" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken,
+                    },
+                    body: JSON.stringify(timeData)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Данные успешно сохранены!');
+
+                        // Обновляем отображаемое время и скрываем поля ввода и их метки
+                        elements.timePairGroups.forEach(pairGroup => {
+                            pairGroup.querySelectorAll('.time-input').forEach(input => {
+                                input.style.display = 'none';
+                            });
+                            pairGroup.querySelectorAll('.time-display').forEach(span => {
+                                 const input = span.parentNode.querySelector('.time-input');
+                                 span.textContent = input ? (input.value || '-') : '-';
+                                 span.style.display = 'inline';
+                            });
+                            pairGroup.querySelectorAll('.time-label').forEach(label => {
+                                label.style.display = 'none';
+                            });
+                        });
+
+                        // Обновляем тип дня
+                        if (elements.dayTypeSelect) {
+                            const selectedDayType = elements.dayTypeSelect.value;
+                            elements.dayTypeDisplay.textContent =
+                                selectedDayType === 'ND' ? 'Обычный день' :
+                                selectedDayType === 'WD' ? 'Выходной/Праздник' :
+                                'Короткий день';
+                            elements.dayTypeDisplay.className = `day-type-display ${selectedDayType}`;
+                            elements.dayTypeDisplay.style.display = 'inline';
+                            elements.dayTypeSelect.style.display = 'none';
+                        }
+
+                        // Обновляем Итого за день
+                        if (elements.totalTimeDisplay) {
+                            elements.totalTimeDisplay.textContent = data.new_total_time || '-';
+                        }
+
+                        // Обновляем Баланс за день
+                        if (elements.dayBalanceDisplay) {
+                            elements.dayBalanceDisplay.textContent = data.new_day_balance || '-';
+                            if (data.is_negative_day_balance) {
+                                elements.dayBalanceDisplay.classList.add('negative');
+                            } else {
+                                elements.dayBalanceDisplay.classList.remove('negative');
+                            }
+                        }
+
+                        // Обновляем Баланс за месяц
+                        const monthBalanceTotalSpan = document.getElementById('month-balance-total');
+                        if (monthBalanceTotalSpan) {
+                            monthBalanceTotalSpan.textContent = data.total_month_balance || '-';
+                            if (data.is_month_balance_negative) {
+                                monthBalanceTotalSpan.classList.add('negative');
+                            } else {
+                                monthBalanceTotalSpan.classList.remove('negative');
+                            }
+                        }
+
+                        // Возвращаем кнопки в исходное состояние
+                        if (elements.editBtn) elements.editBtn.style.display = 'block';
+                        if (elements.saveBtn) elements.saveBtn.style.display = 'none';
+                        if (elements.addNewPairBtn) elements.addNewPairBtn.style.display = 'none';
+                        if (elements.removePairBtn) elements.removePairBtn.style.display = 'none';
+
+                        // Перезагружаем страницу, чтобы убедиться, что все action.id корректны
+                        // (можно оптимизировать в будущем, но для такой структуры это самый простой способ)
+                        location.reload();
+
+                    } else {
+                        alert('Ошибка при сохранении: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка при отправке запроса:', error);
+                    alert('Произошла ошибка при сохранении');
+                });
+            });
+        });
+
+        // --- Обработка кнопки "+ Вход/Выход" ---
+        document.querySelectorAll('.add-new-pair-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const dayId = this.getAttribute('data-day-id');
+                const elements = getDayElements(dayId); // Используем новую функцию
+
+                const allTimesCell = elements.timeCell; // Это ячейка <td>, содержащая все пары времени
+                if (!allTimesCell) {
+                    console.error("Не найдена ячейка времени для дня:", dayId);
+                    return;
+                }
+
+                const currentPairs = allTimesCell.querySelectorAll('.time-pair-group');
+                let newPairOrder = 0;
+                let insertBeforeElement = null;
+
+                if (currentPairs.length === 0) {
+                    newPairOrder = 0;
+                } else {
+                    const maxExistingOrder = Array.from(currentPairs).reduce((max, pair) => {
+                        const order = parseInt(pair.dataset.order);
+                        return isNaN(order) ? max : Math.max(max, order);
+                    }, -1);
+                    newPairOrder = maxExistingOrder + 1;
+
+                    // Логика вставки: вставляем после последней пары
+                    // (чтобы сохранить "Вход, Выход, Вход, Выход" последовательность)
+                    insertBeforeElement = null; // По умолчанию добавляем в конец
+                }
+
+                const newPairGroup = document.createElement('div');
+                newPairGroup.className = 'time-pair-group';
+                newPairGroup.dataset.order = newPairOrder;
+                newPairGroup.dataset.dayId = dayId; // Важно: добавить dayId для новой группы
+                newPairGroup.innerHTML = `
+                    <div class="time-entry-row">
+                        <span class="time-label entry-label">Вход:</span>
+                        <span class="time-display entry-display" style="display: none;">-</span>
+                        <input type="time" class="time-input entry-input"
+                            value="${new Date().toTimeString().slice(0, 5)}" data-status-gate="EG" data-order="${newPairOrder}" style="display: block;">
+                    </div>
+                    <div class="time-entry-row">
+                        <span class="time-label exit-label">Выход:</span>
+                        <span class="time-display exit-display" style="display: none;">-</span>
+                        <input type="time" class="time-input exit-input"
+                            value="" data-status-gate="OG" data-order="${newPairOrder}" style="display: block;">
+                    </div>
+                `;
+
+                if (insertBeforeElement) {
+                    allTimesCell.insertBefore(newPairGroup, insertBeforeElement);
+                } else {
+                    allTimesCell.appendChild(newPairGroup);
+                }
+
+                // Пересчитываем и обновляем 'order' для всех пар в этой ячейке дня
+                allTimesCell.querySelectorAll('.time-pair-group').forEach((pairGroup, index) => {
+                    pairGroup.dataset.order = index;
+                    pairGroup.querySelectorAll('.time-input').forEach(input => {
+                        input.dataset.order = index;
+                    });
+                });
+            });
+        });
+
+        // --- Обработка кнопки "- Удалить пару" ---
+        document.querySelectorAll('.remove-pair-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const dayId = this.getAttribute('data-day-id');
+                const elements = getDayElements(dayId); // Используем новую функцию
+
+                const allTimesCell = elements.timeCell;
+                if (!allTimesCell) {
+                    console.error("Не найдена ячейка времени для дня:", dayId);
+                    return;
+                }
+
+                const allPairGroups = allTimesCell.querySelectorAll('.time-pair-group');
+
+                if (allPairGroups.length > 1) {
+                    allPairGroups[allPairGroups.length - 1].remove();
+                    // После удаления, пересчитываем order оставшихся групп
+                    allTimesCell.querySelectorAll('.time-pair-group').forEach((pairGroup, index) => {
+                        pairGroup.dataset.order = index;
+                        pairGroup.querySelectorAll('.time-input').forEach(input => {
+                            input.dataset.order = index;
+                        });
+                    });
+                } else if (allPairGroups.length === 1) {
+                    const lastPairGroup = allPairGroups[0];
+                    lastPairGroup.querySelector('.entry-input').value = '';
+                    lastPairGroup.querySelector('.entry-display').textContent = '-';
+                    lastPairGroup.querySelector('.exit-input').value = '';
+                    lastPairGroup.querySelector('.exit-display').textContent = '-';
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>

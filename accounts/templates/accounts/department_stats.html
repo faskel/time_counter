@@ -1,0 +1,511 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru" class="{% if theme_mode == 'dark' %}dark{% endif %}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Статистика отдела — {{ department.name|default:"Отдел" }}</title>
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    
+    <!-- Local Tailwind & Material Icons -->
+    <script src="{% static 'js/tailwindcss.js' %}"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        };
+        (function() {
+            const savedTheme = localStorage.getItem('theme_mode');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
+    <style>
+        @font-face {
+            font-family: 'Material Icons';
+            src: url("{% static 'css/font/MaterialIcons-Regular.ttf' %}") format('truetype');
+        }
+        .material-icons {
+            font-family: 'Material Icons';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: 'liga';
+            vertical-align: middle;
+        }
+
+        :root {
+            --WD-table: #bbf7d0;
+            --HD-table: #fef08a;
+            --ED-table: #d1d5db;
+            --VL-table: #fbcfe8;
+            --MK-table: #cffafe;
+        }
+
+        body { transition: background-color 0.3s, color 0.3s; font-size: 15px; }
+        .negative { color: #ef4444 !important; font-weight: bold; }
+        .positive { color: #10b981 !important; font-weight: bold; }
+
+        /* Day type colors */
+        .type-WD { background-color: var(--WD-table); color: #166534; }
+        .type-HD { background-color: var(--HD-table); color: #854d0e; }
+        .type-ED { background-color: var(--ED-table); color: #374151; }
+        .type-VL { background-color: var(--VL-table); color: #9d174d; }
+        .type-MK { background-color: var(--MK-table); color: #155e75; }
+        .type-KMD { background-color: #e0e7ff; color: #3730a3; }
+        .type-SMD { background-color: #fef3c7; color: #92400e; }
+        .type-ND { background-color: #ffffff; color: #1f2937; }
+
+        html.dark .type-WD { background-color: #14532d !important; color: #f0fdf4 !important; }
+        html.dark .type-HD { background-color: #713f12 !important; color: #fefce8 !important; }
+        html.dark .type-ED { background-color: #334155 !important; color: #cbd5e1 !important; }
+        html.dark .type-VL { background-color: #831843 !important; color: #fce7f3 !important; }
+        html.dark .type-MK { background-color: #164e63 !important; color: #cffafe !important; }
+        html.dark .type-KMD { background-color: #312e81 !important; color: #e0e7ff !important; }
+        html.dark .type-SMD { background-color: #78350f !important; color: #fef3c7 !important; }
+        html.dark .type-ND { background-color: #1e293b !important; color: #f8fafc !important; }
+
+        /* Подсветка расчитанного времени и МК */
+        .mk-highlight { 
+            background-color: #e0f2fe !important; 
+            border: 1.5px solid #0284c7 !important; 
+            border-radius: 6px; 
+            padding: 4px;
+        }
+        .calculated-time-highlight { 
+            background-color: #d1fae5 !important; 
+            border: 1.5px solid #059669 !important; 
+            border-radius: 6px; 
+            padding: 4px;
+        }
+        .mk-highlight.calculated-time-highlight {
+            background: linear-gradient(135deg, #e0f2fe 0%, #d1fae5 100%) !important;
+            border: 1.5px solid #059669 !important;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        html.dark .mk-highlight {
+            background-color: #0c4a6e !important;
+            border: 1.5px solid #38bdf8 !important;
+            color: #f0f9ff !important;
+        }
+        html.dark .calculated-time-highlight {
+            background-color: #064e3b !important;
+            border: 1.5px solid #34d399 !important;
+            color: #ecfdf5 !important;
+        }
+        html.dark .mk-highlight.calculated-time-highlight {
+            background: linear-gradient(135deg, #0c4a6e 0%, #064e3b 100%) !important;
+            border: 1.5px solid #34d399 !important;
+            color: #ecfdf5 !important;
+        }
+
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 9999; }
+        .toast { background: #333; color: #fff; padding: 12px 24px; border-radius: 8px; margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen">
+
+<div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div class="flex items-center gap-3">
+            <a href="{% url 'show_works_day' %}" class="h-10 px-3 flex items-center justify-center gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors shadow-sm" title="Вернуться к персональному табелю">
+                <span class="material-icons">arrow_back</span>
+                <span>Табель</span>
+            </a>
+            <div>
+                <h1 class="text-2xl font-bold flex items-center gap-2">
+                    <span class="material-icons text-purple-600 dark:text-purple-400 text-2xl">groups</span>
+                    <span>Отдел: {{ department.name|default:"Не назначен" }}</span>
+                </h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Статистика посещаемости и рабочего времени сотрудников</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            {% if all_departments and user.is_superuser or user.is_staff %}
+            <form method="get" class="flex items-center gap-2">
+                <input type="hidden" name="date" value="{{ selected_date_str }}">
+                <select name="department_id" onchange="this.form.submit()" class="h-10 px-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium shadow-sm">
+                    {% for d in all_departments %}
+                    <option value="{{ d.id }}" {% if d.id == department.id %}selected{% endif %}>{{ d.name }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+
+            {% if user.is_superuser or user.is_staff %}
+            <a href="/admin/" target="_blank" class="h-10 px-3 flex items-center justify-center gap-1 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:hover:bg-amber-900/80 dark:text-amber-200 rounded-lg text-sm font-bold transition-colors shadow-sm" title="Панель администратора">
+                <span class="material-icons">admin_panel_settings</span>
+                <span>Админка</span>
+            </a>
+            {% endif %}
+
+            <button id="theme-toggle-btn" onclick="toggleThemeMode()" class="w-10 h-10 flex items-center justify-center bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg transition-colors border border-slate-200 dark:border-slate-700 shadow-sm" title="Сменить тему">
+                <span id="theme-toggle-icon" class="text-lg">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Summary Stats Bar -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-900/40 text-purple-600 dark:text-purple-300 flex items-center justify-center">
+                <span class="material-icons text-2xl">badge</span>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Сотрудников в отделе</p>
+                <p class="text-2xl font-bold">{{ employees_data|length }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center">
+                <span class="material-icons text-2xl">schedule</span>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Отработано отделом</p>
+                <p class="text-2xl font-mono font-bold">{{ total_dept_worked_str }}</p>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 flex items-center justify-center">
+                <span class="material-icons text-2xl">account_balance_wallet</span>
+            </div>
+            <div>
+                <p class="text-xs text-slate-500 uppercase font-semibold">Баланс отдела за месяц</p>
+                <p class="text-2xl font-mono {% if is_dept_balance_negative %}negative{% else %}positive{% endif %}">
+                    {{ total_dept_balance_str }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Month Navigation & Controls Bar -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+        <!-- Tabs -->
+        <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+            <button id="tab-btn-summary" onclick="switchTab('summary')" class="px-4 py-2 text-sm font-bold rounded-md bg-white dark:bg-slate-800 shadow-sm transition-all flex items-center gap-1.5">
+                <span class="material-icons text-base">table_chart</span>
+                <span>Сводная статистика</span>
+            </button>
+            <button id="tab-btn-matrix" onclick="switchTab('matrix')" class="px-4 py-2 text-sm font-bold rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all flex items-center gap-1.5">
+                <span class="material-icons text-base">calendar_view_month</span>
+                <span>Дневной табель</span>
+            </button>
+        </div>
+
+        <!-- Month Navigation -->
+        <div class="flex items-center gap-2">
+            <a href="?date={{ prev_date_str }}{% if department %}&department_id={{ department.id }}{% endif %}" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <span class="material-icons">chevron_left</span>
+            </a>
+            
+            <div class="relative group">
+                <button class="h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-bold flex items-center gap-2">
+                    {{ current_month_display }} <span class="text-xs">▼</span>
+                </button>
+                <div class="absolute hidden group-hover:block top-full left-0 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg z-50 py-1">
+                    {% for month_num, month_name in month_choices %}
+                    <a href="?date={{ current_year }}-{{ month_num|stringformat:'02d' }}{% if department %}&department_id={{ department.id }}{% endif %}" class="block px-4 py-2 hover:bg-blue-50 dark:hover:bg-slate-700 text-sm">
+                        {{ month_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <a href="?date={{ next_date_str }}{% if department %}&department_id={{ department.id }}{% endif %}" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <span class="material-icons">chevron_right</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- TAB 1: SUMMARY TABLE -->
+    <div id="tab-summary-content" class="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden mb-8">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        <th class="p-4">Сотрудник</th>
+                        <th class="p-4">Учетная запись</th>
+                        <th class="p-4 text-center">Отработано</th>
+                        <th class="p-4 text-center">Баланс месяца</th>
+                        <th class="p-4 text-center">Раб. дней</th>
+                        <th class="p-4 text-center">Отпуск</th>
+                        <th class="p-4 text-center">МК</th>
+                        <th class="p-4 text-center">Командировки</th>
+                        <th class="p-4 text-center">Перенесено</th>
+                        <th class="p-4 text-center">Добавлено</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700 text-sm">
+                    {% for emp in employees_data %}
+                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-700/50 transition-colors">
+                        <td class="p-4">
+                            <div class="flex items-center gap-2">
+                                <span class="font-bold text-slate-900 dark:text-slate-100">{{ emp.full_name }}</span>
+                                {% if emp.is_head %}
+                                <span class="px-2 py-0.5 text-[10px] uppercase font-extrabold bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:text-purple-300 rounded-full">Начальник</span>
+                                {% endif %}
+                            </div>
+                            <span class="text-xs text-slate-400">@{{ emp.username }}</span>
+                        </td>
+                        <td class="p-4 text-slate-600 dark:text-slate-300">
+                            {{ emp.account_type_display }}
+                        </td>
+                        <td class="p-4 text-center font-mono font-bold">
+                            {{ emp.total_worked_str }}
+                        </td>
+                        <td class="p-4 text-center font-mono font-bold {% if emp.is_balance_negative %}negative{% else %}positive{% endif %}">
+                            {{ emp.month_balance_str }}
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 rounded-md font-semibold text-xs">{{ emp.day_types_count.ND }}</span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="px-2.5 py-1 bg-pink-100 text-pink-700 dark:bg-pink-950/60 dark:text-pink-300 rounded-md font-semibold text-xs">{{ emp.day_types_count.VL }}</span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="px-2.5 py-1 bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 rounded-md font-semibold text-xs">{{ emp.day_types_count.MK }}</span>
+                        </td>
+                        <td class="p-4 text-center">
+                            <span class="px-2.5 py-1 bg-cyan-100 text-cyan-700 dark:bg-cyan-950/60 dark:text-cyan-300 rounded-md font-semibold text-xs">{{ emp.day_types_count.KMD }}</span>
+                        </td>
+                        <td class="p-4 text-center font-mono font-semibold {% if emp.is_transferred_negative %}negative{% elif emp.transferred_str != '00:00:00' and emp.transferred_str != '00:00' %}positive{% endif %}">
+                            {{ emp.transferred_str }}
+                        </td>
+                        <td class="p-4 text-center font-mono font-semibold {% if emp.is_added_negative %}negative{% elif emp.added_str != '00:00:00' and emp.added_str != '00:00' %}positive{% endif %}">
+                            {{ emp.added_str }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="10" class="p-8 text-center text-slate-400">
+                            В данном отделе нет зарегистрированных сотрудников.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TAB 2: DAILY TIMESHEET TABLE FOR SELECTED USER -->
+    <div id="tab-matrix-content" class="hidden mb-8">
+        <!-- User Selection Header -->
+        <div class="flex flex-wrap items-center justify-between gap-4 p-4 mb-6 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700">
+            <div class="flex items-center gap-3">
+                <label for="user-select-input" class="font-bold text-sm text-slate-700 dark:text-slate-200">Выберите сотрудника:</label>
+                <select id="user-select-input" onchange="changeSelectedUser(this.value)" class="h-10 px-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg font-semibold text-sm shadow-sm focus:ring-2 focus:ring-purple-500 focus:outline-none text-slate-900 dark:text-slate-100">
+                    {% for emp in employees_data %}
+                    <option value="{{ emp.user.id }}" {% if selected_user and emp.user.id == selected_user.id %}selected{% endif %}>
+                        {{ emp.full_name }} (@{{ emp.username }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_user %}
+            <div class="flex items-center gap-6 text-sm font-mono font-bold">
+                <div>
+                    <span class="text-slate-500 font-normal">Отработано: </span>
+                    <span class="text-blue-600 dark:text-blue-400">{{ selected_user_month_worked_str }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-500 font-normal">Баланс: </span>
+                    <span class="{% if is_selected_user_balance_negative %}negative{% else %}positive{% endif %}">{{ selected_user_month_balance_str }}</span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Weekly Tables for Selected Employee -->
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-x-auto">
+            {% for week in selected_user_weekly_rows %}
+            <table class="w-full text-center border-collapse border border-slate-300 dark:border-slate-700 text-sm mb-6 min-w-[700px]">
+                <thead>
+                    <tr>
+                        <th class="p-2 border border-slate-300 dark:border-slate-700 bg-gray-100 dark:bg-slate-900 font-bold text-[13px] w-24">Дата</th>
+                        {% for cell in week.dates %}
+                        <th class="p-2 border border-slate-300 dark:border-slate-700 font-bold text-center text-xs {% if cell.is_today %}bg-blue-100/80 border-x-2 border-blue-500 text-blue-900 dark:text-blue-100{% else %}bg-gray-100/70 dark:bg-slate-900/70{% endif %}">
+                            {{ cell.date_obj.day }} {{ cell.day_name_ru }}
+                            {% if cell.is_birthday %}
+                            <span class="inline-block ml-1" title="День рождения: {{ cell.birthday_person }}">🎂</span>
+                            {% endif %}
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Тип дня -->
+                    <tr>
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 font-semibold">Тип</td>
+                        {% for cell in week.types %}
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 text-center type-{{ cell.type }} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}">
+                            {% if cell.is_current_month %}
+                            <div class="day-cell">
+                                <span>{{ cell.display }}</span>
+                            </div>
+                            {% else %}<span class="text-gray-400 dark:text-slate-500 font-normal">-</span>{% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Время -->
+                    <tr>
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 font-semibold">Время</td>
+                        {% for cell_times in week.times %}
+                        <td id="time-cell-{{ cell_times.id }}" class="time-cell p-2 border border-slate-300 dark:border-slate-700 align-top text-center {% if cell_times.is_today %}border-x-2 border-blue-400{% endif %}">
+                            {% if cell_times.pairs %}
+                                {% for pair in cell_times.pairs %}
+                                <div class="time-pair-group mb-2 p-1 {% if pair.entry_type == 'mk' %}mk-highlight{% endif %} {% if pair.is_calculated %}calculated-time-highlight{% endif %}">
+                                     <div class="flex flex-col gap-1.5 items-center w-full">
+                                         <div class="flex justify-center items-center gap-1 font-mono text-sm text-center w-full">
+                                             <span class="px-1">{{ pair.entry_time|default:"--:--" }}</span>
+                                             <span class="px-0.5 text-gray-400 font-normal">|</span>
+                                             <span class="px-1">{{ pair.exit_time|default:"--:--" }}</span>
+                                         </div>
+                                     </div>
+                                </div>
+                                {% endfor %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Итого -->
+                    <tr class="bg-gray-50/30 dark:bg-slate-900/30">
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 font-semibold">Итого</td>
+                        {% for cell in week.total_time %}
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 text-center font-mono {% if cell.is_today %}border-x-2 border-blue-400{% endif %}" id="total-time-{{ cell.id }}">{{ cell.value|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Баланс дня -->
+                    <tr>
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 font-semibold">Баланс</td>
+                        {% for cell in week.day_balance %}
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 text-center font-mono {% if cell.is_negative %}negative{% elif cell.value and cell.value != '00:00' and cell.value != '-00:00' %}positive{% endif %} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}">{{ cell.value|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Накопительный -->
+                    <tr class="bg-blue-50/50 dark:bg-slate-900/50">
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 font-semibold">Накоп.</td>
+                        {% for cell in week.cumulative_balance %}
+                        <td class="p-2 border border-slate-300 dark:border-slate-700 text-center font-mono font-bold {% if cell.is_negative %}negative{% else %}positive{% endif %} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}">
+                            {{ cell.value|default:"-" }}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+            {% empty %}
+            <div class="p-8 text-center text-slate-400">
+                Нет данных для отображения.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    function showToast(message, type = 'success') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type === 'error' ? 'bg-red-600' : 'bg-slate-800'} text-white px-4 py-2 rounded-lg shadow-lg mb-2`;
+        toast.innerText = message;
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    function changeSelectedUser(userId) {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('user_id', userId);
+        urlParams.set('tab', 'matrix');
+        window.location.search = urlParams.toString();
+    }
+
+    function switchTab(tabName) {
+        const summaryTab = document.getElementById('tab-btn-summary');
+        const matrixTab = document.getElementById('tab-btn-matrix');
+        const summaryContent = document.getElementById('tab-summary-content');
+        const matrixContent = document.getElementById('tab-matrix-content');
+
+        if (tabName === 'summary') {
+            summaryTab.className = "px-4 py-2 text-sm font-bold rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm transition-all flex items-center gap-1.5";
+            matrixTab.className = "px-4 py-2 text-sm font-bold rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all flex items-center gap-1.5";
+            summaryContent.classList.remove('hidden');
+            matrixContent.classList.add('hidden');
+        } else {
+            matrixTab.className = "px-4 py-2 text-sm font-bold rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-sm transition-all flex items-center gap-1.5";
+            summaryTab.className = "px-4 py-2 text-sm font-bold rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-all flex items-center gap-1.5";
+            matrixContent.classList.remove('hidden');
+            summaryContent.classList.add('hidden');
+        }
+    }
+
+    // Авто-открытие вкладки, если передано в URL
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('tab') === 'matrix') {
+            switchTab('matrix');
+        }
+    });
+
+    function applyTheme(theme) {
+        const isDark = theme === 'dark';
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        const icon = document.getElementById('theme-toggle-icon');
+        if (icon) icon.innerText = isDark ? '☀️' : '🌙';
+    }
+
+    async function toggleThemeMode() {
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+        localStorage.setItem('theme_mode', newTheme);
+
+        try {
+            await fetch("{% url 'save_theme_settings' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({ theme_mode: newTheme })
+            });
+        } catch (e) {
+            console.error('Ошибка темы:', e);
+        }
+    }
+</script>
+
+</body>
+</html>

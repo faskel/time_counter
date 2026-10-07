@@ -1,0 +1,531 @@
+@font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    /*src: url(font/MaterialIconsOutlined-Regular.otf); !* For IE6-8 *!*/
+    src: local('Material Icons'),
+    local('MaterialIcons-Regular'),
+        /*url('static/font/MaterialIcons-Regular.woff2') format('woff2'),*/ /*url('static/font/MaterialIcons-Regular.woff') format('woff'),*/ url(font/MaterialIcons-Regular.ttf) format('truetype');
+}
+
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px; /* Preferred icon size */
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+    /* Support for all WebKit browsers. */
+    -webkit-font-smoothing: antialiased;
+    /* Support for Safari and Chrome. */
+    text-rendering: optimizeLegibility;
+
+    /* Support for Firefox. */
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Support for IE. */
+    font-feature-settings: 'liga';
+}
+
+.time-line {
+    border: none;
+    border-radius: 2px;
+    display: inline-block;
+    height: 36px;
+    line-height: 36px;
+    padding: 0 16px;
+    text-transform: uppercase;
+    vertical-align: middle;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    /*font-family: Calibri, sans-serif;*/
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.user-background-color, .modal-footer{
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+/*{#таблица по дням#}*/
+table {
+
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px auto;
+    font-size: 0.9em;
+    table-layout: fixed;
+    height: 2rem;
+}
+
+.collapsible-header {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+
+}
+
+
+.week-table thead th {
+    /*{#заголовок в таблице#}*/
+    background-color: var(--table-border-color);
+    /* {#текст заголовка в таблице#} */
+    color: var(--text-color);
+    margin: 10px;
+    padding: 8px 4px;
+}
+
+/*{#сетка таблицы#}*/
+th, td {
+    /*background-color: color-mix(in hsl, var(--bg-color),invert(var(--bg-color)) 50%)*/
+    background-color: color-mix(in srgb, var(--bg-color), var(--button-color) 5%);
+    border: 1px solid var(--row-header-bg-color);
+    text-align: center;
+    padding: 6px 4px;
+    vertical-align: top;
+    white-space: normal;
+}
+
+/*{#заголовки сбоку#}*/
+.row-header {
+
+    text-align: left;
+    padding-left: 10px;
+    width: 120px;
+    vertical-align: middle;
+    height: 2rem;
+}
+
+
+/*выходной*/
+.WD-table {
+    background-color: var(--WD-table);
+}
+
+/*Праздник*/
+
+.ED-table{
+        background-color: var(--ED-table);
+    }
+
+/*отпуск*/
+/*
+.VL-table {
+    animation: changeBackgroundColor 2s linear infinite alternate;
+    background-color: #1dbd92;
+}
+@keyframes changeBackgroundColor {
+    0% {background-color: #c3b517;}
+    50% {background-color: #7b8a0e;}
+    100% {background-color: #dc7816;}
+}*/
+
+.HD-table {
+    position: relative;
+    overflow: hidden;
+    color: var(--text-color);
+    z-index: 0;
+}
+
+.HD-table::before,.barber-pole::after{
+
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: repeating-linear-gradient(
+            45deg,
+            var(--color1) 0px 20px,
+            var(--color3) 20px 40px,
+            var(--color2) 40px 60px
+            );
+    background-size: 84px 100px;
+    animation: pole-animation 4s linear infinite;
+}
+
+/*.barber-pole{*/
+/*    background: repeating-linear-gradient(45deg, #fff 0px 20px, #ec0d0d 20px 40px, #007bff 40px 60px);*/
+/*    background-size: 400px 50px;*/
+
+/*    animation: pole-animation 10s linear infinite;*/
+/*    color: #000000;*/
+/*}*/
+
+@keyframes pole-animation {
+    from {
+        background-position: 0 0;
+    }
+    to {
+        background-position: 84px 0px;
+    }
+}
+
+
+.VL-table {
+    background-color: var(--HD-table);
+}
+
+/*короткий день*/
+.SMD-table {
+    background-color: cornflowerblue;
+}
+
+/*переключение стилей пример:*/
+/*{*/
+/*    #class = "{%  if cell_data.type == 'WD' %} {% elif cell_data.type == 'SMD' %} SMD-table {% elif cell_data.type == 'ND' %} week-table{% endif %}" > #*/
+/*}*/
+
+h1 {
+    text-align: center;
+}
+
+
+.text-modal {
+    font-size: 0.9em;
+    color: var(--text-color);
+
+}
+
+.time-display, .time-input {
+    width: 70px;
+    text-align: center;
+    font-size: 0.9em;
+
+}
+
+/* {#ввод типа дня#}*/
+.time-input,
+.day-type-select {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    font-family: Calibri, sans-serif;
+    border: 1px solid var(--bg-color);
+
+    transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+}
+
+.time-entry-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font-size: 1.2em;
+
+    /*font-weight: bold;*/
+}
+
+.btn-calculate-exit, .time-pair-group.calculated-time-highlight {
+    background-color: var(--button-calculate-exit);
+    transition: background-color 0.3s ease;
+}
+
+.btn-calculate-exit:hover {
+    background-color: #1a500c;
+
+}
+
+.text-color-theme {
+    color: var(--text-color);
+    transition: color 0.3s ease;
+}
+
+.btn-remove-pair {
+    background-color: #DC3545FF;
+    transition: background-color 0.3s ease;
+}
+
+.btn-remove-pair:hover {
+    background-color: #63151c;
+}
+
+.btn-save {
+    background-color: var(--button-calculate-exit);
+    transition: background-color 0.3s ease;
+}
+
+.btn-save:hover,btn-save:focus {
+    background-color: #13872FFF;
+
+}
+.btn-control{ /* Включая кнопку "Сохранить" в модальном окне */
+    /* !important может быть необходим, чтобы перебить встроенные стили Materialize */
+    background-color: var(--button-color) !important;
+    color: var(--text-color);
+    font-weight: bold;
+}
+
+
+
+.btn:focus, .btn-large:focus, .btn-small:focus,
+.btn-floating:focus {
+  background-color: #444444;
+}
+.btn-add-mk {
+    background-color: var(--button-mk);
+    transition: background-color 0.3s ease;
+}
+
+.btn-add-mk:hover {
+    background-color: #049181;
+}
+
+.btn-add-time {
+    background-color: #129BD7FF;
+    transition: background-color 0.3s ease;
+}
+
+.btn-add-time:hover {
+    background-color: #0d709c;
+}
+
+.time-pair-group.mk-highlight {
+    background-color: var(--button-mk);
+}
+
+
+.btn-cancel {
+    background-color: #DC3545FF;
+    transition: background-color 0.3s ease;
+}
+
+.btn-cancel:hover {
+    background-color: #af1621;
+}
+/* Базовый стиль для всех групп времени */
+.time-pair-group {
+
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-bottom: 3px;
+    padding: 3px;
+    border: 1px solid color-mix(in srgb, var(--bg-color), var(--text-color) 20%);
+    background-color: color-mix(in srgb, var(--bg-color), var(--text-color) 10%);
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.time-pair-group,
+.actions-container {
+
+    flex-wrap: wrap;
+}
+
+
+.actions-container {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.time-entry-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 3px;
+}
+
+
+.total-time-display {
+    font-weight: bold;
+    color: var(--text-color);
+}
+
+.day-balance-display {
+    font-weight: bold;
+    color: #228B22FF;
+}
+
+.day-balance-display.negative {
+    color: #DC3545FF;
+}
+
+.month-balance-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    margin: 20px auto;
+    font-size: 1.2em;
+    font-weight: bold;
+    background-color: var(--bg-color);
+    padding: 10px 20px;
+    border-radius: 8px;
+    /*{#transition: background-color 0.3s, color 0.3s;#}*/
+}
+
+
+.month-navigation {
+    display: flex;
+    justify-content: center;
+    gap: 1%;
+    /*{#margin: 100px 0;#}*/
+}
+
+.cumulative-balance-display {
+    font-weight: bold;
+    color: #228B22FF;
+}
+
+.cumulative-balance-display.negative {
+    color: #DC3545FF;
+}
+
+.block-span {
+    display: block;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+
+
+}
+
+.month-balance-label {
+    display: block;
+
+}
+
+.import-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.static-head {
+    position: sticky;
+
+}
+
+.month-balance-display {
+    font-weight: bold;
+}
+
+.day-type-display {
+    cursor: pointer;
+    vertical-align: middle;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+    /*margin: 20px auto;*/
+    font-size: 1em;
+    font-weight: bold;
+
+}
+.time-display {
+    cursor: pointer; /* Указываем, что элемент кликабельный */
+    display: block;
+    min-height: 1.5rem; /* Чтобы пустая ячейка была кликабельной */
+}
+
+.time-input {
+    width: 100%;
+    height: 1.5rem;
+    box-sizing: border-box;
+    font-size: 12px;
+    margin-bottom: 0 !important;
+
+}
+
+.time-display, .time-input {
+    text-align: center;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.time-entry-row {
+    /* Добавляем отступы для всего контейнера */
+    padding: 2px 0;
+}
+
+
+.birthday-list-top {
+    padding: 8px 15px;
+    background-color: #ffe0b2; /* Светло-оранжевый фон */
+    border-radius: 5px;
+    font-size: 1.05em;
+    font-weight: 500;
+    color: #e65100; /* Темно-оранжевый текст */
+    overflow-x: auto; /* На всякий случай, если список длинный */
+    white-space: nowrap;
+}
+
+/* Стиль для иконки cake */
+.birthday-cake-icon {
+    font-size: 1.3rem;
+    vertical-align: middle;
+    margin-left: 5px;
+    color: var(--birthday-cake-color);
+    cursor: help;
+
+
+}
+
+/* Переменные для светлой темы (используются по умолчанию) */
+:root {
+    --bg-color: #ffffff;
+    --text-color: #333333;
+    --table-border-color: #dddddd;
+    --row-header-bg-color: #444444;
+    --positive-color: #228B22;
+    --negative-color: #dc3545;
+    --button-color: #2196F3;
+    --button-hover-color: #0c648a;
+    --button-calculate-exit: #4cd56d;
+    --button-mk: #0bcabc;
+    --WD-table: #79f379;
+    --HD-table: #e1b112;
+    --ED-table: #a8a8a8;
+    --color1: #ffffff;
+    --color2: #ea0d0d;
+    --color3: #129bd7;
+    --birthday-cake-color:#e45000;
+
+    .month-balance-display.positive {
+        color: var(--positive-color);
+
+    }
+
+    .month-balance-display.negative {
+        color: var(--negative-color);
+    }
+
+}
+
+/* Переменные для темной темы */
+body.dark-theme {
+    --bg-color: #232323;
+    --text-color: #f5f5f5;
+    --table-border-color: #444444;
+    --row-header-bg-color: #333333;
+    --positive-color: #28a745;
+    --negative-color: #dc3545;
+    --button-color: #345aa6;
+    --button-hover-color: #26496e;
+    --button-calculate-exit: #387a47;
+    --button-mk: #099186;
+    --WD-table: #53a553;
+    --HD-table: #b58e0f;
+    --ED-table: #888888;
+    --color1: #828282;
+    --color2: #97242e;
+    --color3: #10314c;
+    --birthday-cake-color: #fddeb1;
+
+}
+
+

@@ -1,0 +1,461 @@
+/* Modern compact UI — replacement for Materialize */
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.container {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 8px 10px 20px;
+}
+
+@media (min-width: 768px) {
+    .container {
+        padding: 12px 16px 24px;
+    }
+}
+
+/* Legacy grid compatibility */
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0 0 8px;
+    align-items: center;
+}
+
+[class*="col s"] {
+    flex: 0 0 auto;
+}
+
+.col.s12 { width: 100%; flex: 1 1 100%; }
+.col.s8 { width: 66.666%; }
+.col.s6 { width: 50%; }
+.col.s4 { width: 33.333%; }
+.col.s3 { width: 25%; }
+.col.s2 { width: 16.666%; min-width: 0; }
+.col.s1 { width: 8.333%; min-width: 0; }
+.offset-s2 { margin-left: 16.666%; }
+
+.right-align { text-align: right; }
+.left-align { text-align: left; }
+.center, .center-align { text-align: center; }
+
+@media (max-width: 720px) {
+    [class*="col s"] {
+        width: auto !important;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .offset-s2 {
+        margin-left: 0;
+    }
+
+    .month-balance-container {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 6px !important;
+        height: auto !important;
+        line-height: 1.4 !important;
+        padding: 10px 12px !important;
+        font-size: 0.95em !important;
+    }
+
+    .month-balance-container > [class*="col"] {
+        width: 100% !important;
+        text-align: center !important;
+    }
+
+    .app-toolbar-row {
+        justify-content: center;
+    }
+
+    .row-header {
+        width: 72px !important;
+        font-size: 0.78em;
+        padding-left: 4px !important;
+    }
+
+    table {
+        font-size: 0.78em !important;
+    }
+
+    th, td {
+        padding: 4px 2px !important;
+    }
+
+    .btn, .btn-small {
+        min-height: 32px;
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+}
+
+/* Header & toolbar */
+.app-title {
+    margin: 0;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
+    font-weight: 600;
+    text-align: center;
+}
+
+.app-toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+}
+
+.toolbar-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+
+.toolbar-group--nav {
+    flex: 1 1 100%;
+    justify-content: center;
+}
+
+@media (min-width: 721px) {
+    .toolbar-group--nav {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}
+
+/* Buttons */
+.btn,
+.btn-small,
+button.btn,
+a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    text-decoration: none;
+    font: inherit;
+    font-weight: 500;
+    line-height: 1.2;
+    transition: background-color 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+    white-space: nowrap;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn {
+    min-height: 36px;
+    padding: 8px 14px;
+}
+
+.btn-small {
+    min-height: 30px;
+    padding: 5px 8px;
+    font-size: 12px;
+}
+
+.btn:hover,
+.btn-small:hover {
+    filter: brightness(0.95);
+}
+
+.btn:active,
+.btn-small:active {
+    transform: scale(0.98);
+}
+
+.btn:disabled,
+.btn.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.btn-flat {
+    background: transparent;
+    color: var(--text-color);
+    border: 1px solid color-mix(in srgb, var(--text-color), transparent 75%);
+}
+
+.icon {
+    font-style: normal;
+    line-height: 1;
+}
+
+/* Dropdown */
+.dropdown-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-content {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 160px;
+    max-height: 280px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 6px 0;
+    list-style: none;
+    background: var(--bg-color);
+    border: 1px solid color-mix(in srgb, var(--text-color), transparent 80%);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+}
+
+.dropdown-content.is-open {
+    display: block;
+}
+
+.dropdown-content li a {
+    display: block;
+    padding: 8px 14px;
+    color: var(--button-color);
+    text-decoration: none;
+}
+
+.dropdown-content li a:hover {
+    background: color-mix(in srgb, var(--button-color), transparent 88%);
+}
+
+/* Modals */
+.modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9500;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(3px);
+}
+
+.modal.is-open {
+    display: flex;
+}
+
+.modal > .modal-content,
+.modal > .modal-footer {
+    position: relative;
+}
+
+.modal > .modal-content,
+.modal:not(:has(.modal-panel)) > .modal-content {
+    width: min(560px, 100%);
+    max-height: min(90vh, 720px);
+    overflow: auto;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-panel {
+    width: min(560px, 100%);
+    max-height: min(90vh, 720px);
+    overflow: auto;
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.modal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 12px 0 0;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+/* Tooltips */
+.tooltipped {
+    position: relative;
+}
+
+.tooltip-bubble {
+    position: fixed;
+    z-index: 10000;
+    max-width: 220px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 12px;
+    line-height: 1.3;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.tooltip-bubble.is-visible {
+    opacity: 1;
+}
+
+/* Toasts */
+.toast-container {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: min(420px, calc(100vw - 24px));
+    pointer-events: none;
+}
+
+.app-toast {
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: #1f2937;
+    color: #fff;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    animation: toast-in 0.2s ease;
+}
+
+.app-toast.green,
+.app-toast.rounded.green {
+    background: #15803d;
+}
+
+.app-toast.red,
+.app-toast.rounded.red {
+    background: #b91c1c;
+}
+
+.app-toast.rounded {
+    border-radius: 999px;
+    text-align: center;
+}
+
+@keyframes toast-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Tables scroll on narrow screens */
+#weeks-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 10px;
+}
+
+.week-table {
+    min-width: 640px;
+}
+
+/* Form controls */
+input[type="text"],
+input[type="number"],
+input[type="time"],
+input[type="date"],
+select,
+textarea {
+    border-radius: 8px;
+}
+
+select.browser-default,
+.day-type-select {
+    width: 100%;
+    border-radius: 8px;
+    padding: 4px 6px;
+}
+
+.input-field {
+    margin: 0;
+}
+
+.input-field input {
+    width: 100%;
+    border: 1px solid color-mix(in srgb, var(--text-color), transparent 75%);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--bg-color);
+    color: var(--text-color);
+}
+
+.time-entry-row > .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin: 0;
+}
+
+.actions-container .row,
+#actions-* .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: center;
+}
+
+.actions-container .btn-small,
+[id^="actions-"] .btn-small {
+    flex: 1 1 40%;
+    max-width: 48%;
+}
+
+.save-all-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 12px;
+}
+
+.save-all-row .btn {
+    width: min(320px, 100%);
+}
+
+.red-text {
+    color: #dc2626 !important;
+}
+
+.green.darken-1 {
+    background: #15803d !important;
+    color: #fff !important;
+}
+
+.grey-text.text-darken-1 {
+    color: color-mix(in srgb, var(--text-color), transparent 35%);
+}
+
+.blue-text.text-accent-2 {
+    color: var(--button-color);
+}
+
+.center-block {
+    display: flex;
+    justify-content: center;
+}

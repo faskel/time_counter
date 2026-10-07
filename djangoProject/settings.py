@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+from django.conf.urls import static
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,8 +27,11 @@ SECRET_KEY = 'django-insecure-_3-e)u1-26xa%n-%o7*b2s2f%yx_1345o3qd(fll%jc=e&ir(7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['10.202.0.56',
-                 '127.0.0.1',]
+ALLOWED_HOSTS = ['10.202.1.199',
+                 '10.202.0.40',
+                 '127.0.0.1',
+                 '172.18.28.113',
+                 '172.17.239.65',]
 
 AUTH_USER_MODEL = 'accounts.User'
 # Application definition
@@ -67,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.debug',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'accounts.context_processors.planner_notifications',
             ],
         },
     },
@@ -120,7 +126,11 @@ USE_I18N = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',

@@ -54,8 +54,7 @@ class Command(BaseCommand):
                         date_obj = datetime.strptime(date_str, '%d.%m.%Y').date()
                         time_obj = datetime.strptime(time_str, '%H:%M').time()
 
-                        # Добавляем 3 часа к времени
-                        combined_dt = datetime.combine(date_obj, time_obj) + timedelta(hours=3)
+                        combined_dt = datetime.combine(date_obj, time_obj)
                         datetime_obj = timezone.make_aware(combined_dt)
 
                         if date_obj not in workdays_data:
@@ -72,7 +71,8 @@ class Command(BaseCommand):
 
                 for date_stamp, actions_list in workdays_data.items():
                     # Удаляем старые данные для этой даты
-                    WorkDay.objects.filter(user=user, date_stamp=date_stamp).delete()
+                    print(WorkDay.objects.filter(user=user, date_stamp=date_stamp,WORK_TYPE_CHOICES = 'default'))
+                    WorkDay.objects.filter(user=user, date_stamp=date_stamp,WORK_TYPE_CHOICES = 'default').delete()
 
                     # Создаем новый WorkDay
                     workday = WorkDay.objects.create(

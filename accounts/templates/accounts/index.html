@@ -1,815 +1,2530 @@
+{% load static %}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="ru" class="{% if theme_mode == 'dark' %}dark{% endif %}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Рабочее время</title>
+    <title>Рабочее время сотрудника</title>
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <!-- Tailwind CSS Local -->
+    <script src="{% static 'js/tailwindcss.js' %}"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        };
+        (function() {
+            const savedTheme = localStorage.getItem('theme_mode');
+            if (savedTheme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else if (savedTheme === 'light') {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
     <style>
-        body {
-            font-family: Calibri, sans-serif;
+        @font-face {
+            font-family: 'Material Icons';
+            src: url("{% static 'css/font/MaterialIcons-Regular.ttf' %}") format('truetype');
         }
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px auto;
-            font-size: 0.9em;
-            table-layout: fixed;
-        }
-
-        .week-table thead th {
-            background-color: #e6e6e6;
-            color: #333;
-            font-weight: bold;
-            padding: 8px 4px;
-        }
-
-        th, td {
-            border: 1px solid #dddddd;
-            text-align: center;
-            padding: 6px 4px;
-            vertical-align: top;
-            white-space: normal;
-        }
-
-        .row-header {
-            background-color: #f2f2f2;
-            text-align: left;
-            padding-left: 10px;
-            width: 120px;
+        .material-icons {
+            font-family: 'Material Icons';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 20px;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+            text-rendering: optimizeLegibility;
+            -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: 'liga';
             vertical-align: middle;
         }
 
-        h1 {
-            text-align: center;
-        }
-
-        /* Базовый стиль для всех групп времени */
-        .time-pair-group {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            margin-bottom: 3px;
-            padding: 3px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            background-color: transparent;
-        }
-
-        /* Стиль для кнопки "+" */
-        .time-pair-group.default-highlight {
-            /*background-color: #094581; !* Светло-голубой, например *!*/
-        }
-
-        /* Стиль для кнопки "МК" */
-        .time-pair-group.mk-highlight {
-            background-color: #1cbeb2;
-        }
-
-        .time-display, .time-input {
-            width: 70px;
-            text-align: center;
-            font-size: 0.9em;
-        }
-
-        .time-input,
-        .day-type-select {
-            background-color: var(--input-bg-color);
-            color: var(--input-text-color);
-            border: 1px solid var(--input-border-color);
-            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
-        }
-
-        .time-entry-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 3px;
-        }
-
-
-        /* Единый стиль для всех кнопок действий */
-        .btn-action, a.btn-action, .nav-btn, .import-btn {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 15px; /* Увеличил padding для лучшего внешнего вида */
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 2px;
-            transition: background-color 0.3s ease;
-        }
-
-        .btn-action:hover, .nav-btn:hover, .import-btn:hover {
-            background-color: #0056b3;
-        }
-
-        .btn-remove-pair {
-            background-color: #da0d0d;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 14px;
-            margin: 2px;
-        }
-
-        .time-pair-group,
-        .actions-container {
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            margin: 3px auto;
-            padding: 3px;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            flex-wrap: wrap;
-        }
-
-        .actions-container {
-            flex-direction: row;
-            justify-content: center;
-        }
-
-        .time-entry-row {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 3px;
-        }
-
-        .btn-save {
-            background-color: #28a745;
-        }
-
-        .btn-add-mk {
-            background-color: #1cbeb2;
-        }
-
-        .btn-cancel {
-            background-color: #dc3545;
-        }
-
-        .total-time-display {
-            font-weight: bold;
-            color: #1976d2;
-        }
-
-        .day-balance-display {
-            font-weight: bold;
-            color: forestgreen;
-        }
-
-        .day-balance-display.negative {
-            color: red;
-        }
-
-        .month-balance-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 15px;
-            margin: 20px auto;
-            font-size: 1.2em;
-            font-weight: bold;
-            background-color: var(--month-balance-bg);
-            padding: 10px 20px;
-            border-radius: 8px;
-        {#transition: background-color 0.3s, color 0.3s;#}
-        }
-
-        /*
-            Явно применяем цвет текста ко всем дочерним элементам.
-            Это гарантирует, что стили не будут переопределены.
-        */
-        .month-balance-container .label,
-        .month-balance-container .month-balance-display,
-        .month-balance-container .month-balance-display.positive,
-        .month-balance-container .month-balance-display.negative {
-            color: var(--month-balance-text);
-        }
-
-        .month-balance-display.negative {
-            color: red;
-        }
-
-        .month-balance-display.positive {
-            color: green;
-        }
-
-        .month-navigation {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin: 20px 0;
-        }
-
-        .cumulative-balance-display {
-            font-weight: bold;
-            color: forestgreen;
-        }
-
-        .cumulative-balance-display.negative {
-            color: red;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 20px;
-        }
-
-        .import-section {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        /* Переменные для светлой темы (используются по умолчанию) */
+        /* Интеграция настроек темы */
         :root {
-            --bg-color: #ffffff;
-            --text-color: #333333;
-            --header-bg-color: #e6e6e6;
-            --table-border-color: #dddddd;
-            --row-header-bg-color: #f2f2f2;
-            --month-balance-bg: #e0f2f7;
-            --month-balance-text: #333333;
-            --positive-color: #28a745;
-            --negative-color: #dc3545;
-            --input-bg-color: #ffffff;
-            --input-text-color: #333333;
-            --input-border-color: #dddddd;
-
-            .month-balance-display.positive {
-                color: var(--positive-color);
-            }
-
-            .month-balance-display.negative {
-                color: var(--negative-color);
-            }
-
+            --bg-color: #f8fafc;
+            --text-color: #1f2937;
+            --button-color: #3b82f6;
+            --positive-color: #10b981;
+            --negative-color: #ef4444;
+            --table-border-color: #e5e7eb;
+            --row-header-bg-color: #ffffff;
+            --button-calculate-exit: #10b981;
+            --button-mk: #06b6d4;
+            --WD-table: #bbf7d0;
+            --HD-table: #fef08a;
+            --ED-table: #d1d5db;
+            --birthday-cake-color: #f97316;
         }
 
-        /* Переменные для темной темы */
-        body.dark-theme {
-            --bg-color: #121212;
-            --text-color: #f5f5f5;
-            --header-bg-color: #2c2c2c;
-            --table-border-color: #444444;
-            --row-header-bg-color: #333333;
-            --month-balance-bg: #222222;
-            --month-balance-text: #f5f5f5;
-            --positive-color: #28a745;
-            --negative-color: #dc3545;
-            --input-bg-color: #444444;
-            --input-text-color: #f5f5f5;
-            --input-border-color: #555555;
-
-
-        }
-        body.random-theme {
-    /* Эти переменные будут динамически установлены JavaScript-ом */
-}
-        /* Применяем переменные ко всей странице */
         body {
             background-color: var(--bg-color);
             color: var(--text-color);
-            font-family: Calibri, sans-serif;
             transition: background-color 0.3s, color 0.3s;
+            font-size: 15px;
         }
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-            margin: 20px auto;
-            font-size: 0.9em;
-            table-layout: fixed;
+        .btn-theme {
+            background-color: var(--button-color);
+            color: white;
+            transition: opacity 0.2s;
         }
 
-        .week-table thead th {
-            background-color: var(--header-bg-color);
-            color: var(--text-color);
+        .btn-theme:hover {
+            opacity: 0.9;
+        }
+
+        .negative {
+            color: var(--negative-color) !important;
             font-weight: bold;
-            padding: 8px 4px;
         }
 
-        th, td {
-            border: 1px solid var(--table-border-color);
-            text-align: center;
-            padding: 6px 4px;
-            vertical-align: top;
-            white-space: normal;
+        .positive {
+            color: var(--positive-color) !important;
+            font-weight: bold;
         }
 
-        .row-header {
-            background-color: var(--row-header-bg-color);
-            text-align: left;
-            padding-left: 10px;
-            width: 120px;
-            vertical-align: middle;
+        /* Цвета типов дней */
+        .type-WD {
+            background-color: var(--WD-table);
+        }
+
+        .type-HD {
+            background-color: var(--HD-table);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .type-SMD {
+            background-color: #fef08a !important;
+            color: #854d0e !important;
+            font-weight: bold;
+            border: 1.5px solid #f59e0b !important;
+        }
+
+        .type-ED {
+            background-color: var(--ED-table);
+        }
+
+        .type-VL {
+            background-color: #fbcfe8;
+        }
+
+        /* Отпуск */
+        .type-MK {
+            background-color: #cffafe;
+        }
+
+        /* МК */
+
+        /* Праздничные анимации */
+        @keyframes holidayPulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.18);
+                filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.7));
+            }
+        }
+
+        .holiday-animated {
+            display: inline-block;
+            animation: holidayPulse 2.2s infinite ease-in-out;
+        }
+
+        .type-HD::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.45) 50%, transparent 80%);
+            animation: holidayShimmer 3.5s infinite;
+            pointer-events: none;
+        }
+
+        @keyframes holidayShimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        /* Подсветка расчитанного времени и МК с заливкой */
+        .mk-highlight {
+            background-color: #e0f2fe !important;
+            border: 1.5px solid #0284c7 !important;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .calculated-time-highlight {
+            background-color: #d1fae5 !important;
+            border: 1.5px solid #059669 !important;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        .mk-highlight.calculated-time-highlight {
+            background: linear-gradient(135deg, #e0f2fe 0%, #d1fae5 100%) !important;
+            border: 1.5px solid #059669 !important;
+            border-radius: 6px;
+            padding: 4px;
+        }
+
+        /* Темная тема для МК и расчитанного времени */
+        html.dark .mk-highlight {
+            background-color: #0c4a6e !important;
+            border: 1.5px solid #38bdf8 !important;
+            color: #f0f9ff !important;
+        }
+
+        html.dark .calculated-time-highlight {
+            background-color: #064e3b !important;
+            border: 1.5px solid #34d399 !important;
+            color: #ecfdf5 !important;
+        }
+
+        html.dark .mk-highlight.calculated-time-highlight {
+            background: linear-gradient(135deg, #0c4a6e 0%, #064e3b 100%) !important;
+            border: 1.5px solid #34d399 !important;
+            color: #ecfdf5 !important;
+        }
+
+        /* Кастомный Toast */
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+
+        .toast {
+            background: #333;
+            color: #fff;
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin-top: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+
+        /* Стили для Ночной Темы (Dark Mode) */
+        html.dark body {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+        }
+
+        html.dark .bg-white {
+            background-color: #1e293b !important;
+            color: #f8fafc !important;
+            border-color: #334155 !important;
+        }
+
+        html.dark .bg-gray-50, html.dark .bg-gray-100 {
+            background-color: #334155 !important;
+            color: #f8fafc !important;
+            border-color: #475569 !important;
+        }
+
+        html.dark .bg-gray-50\/30, html.dark .bg-gray-50\/50 {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+        }
+
+        html.dark .bg-blue-50\/50, html.dark .bg-blue-50\/70 {
+            background-color: rgba(30, 58, 138, 0.5) !important;
+        }
+
+        html.dark .bg-blue-100\/80 {
+            background-color: rgba(30, 58, 138, 0.7) !important;
+        }
+
+        html.dark .text-gray-500, html.dark .text-gray-600 {
+            color: #94a3b8 !important;
+        }
+
+        html.dark .border, html.dark .border-b-4, html.dark .border-gray-200 {
+            border-color: #334155 !important;
+        }
+
+        html:not(.dark) select,
+        html:not(.dark) input[type="text"],
+        html:not(.dark) input[type="date"],
+        html:not(.dark) input[type="number"],
+        html:not(.dark) input[type="month"] {
+            background-color: #ffffff !important;
+            color: #1f2937 !important;
+            border-color: #d1d5db !important;
+        }
+
+        html.dark select, html.dark input[type="text"], html.dark input[type="date"], html.dark input[type="number"], html.dark input[type="month"] {
+            background-color: #0f172a !important;
+            color: #f8fafc !important;
+            border-color: #475569 !important;
+        }
+
+        html:not(.dark) .bg-indigo-50 {
+            background-color: #eef2ff !important;
+            color: #4338ca !important;
+        }
+
+        html.dark .bg-indigo-50 {
+            background-color: rgba(49, 46, 129, 0.6) !important;
+            color: #c7d2fe !important;
+        }
+
+        html.dark .type-WD {
+            background-color: #14532d !important;
+            color: #f0fdf4 !important;
+        }
+
+        html.dark .type-HD {
+            background-color: #713f12 !important;
+            color: #fefce8 !important;
+        }
+
+        html.dark .type-SMD {
+            background-color: #713f12 !important;
+            color: #fef08a !important;
+            border-color: #b45309 !important;
+        }
+
+        html.dark .type-ED {
+            background-color: #334155 !important;
+            color: #cbd5e1 !important;
+        }
+
+        html.dark .type-VL {
+            background-color: #831843 !important;
+            color: #fce7f3 !important;
+        }
+
+        html.dark .type-MK {
+            background-color: #164e63 !important;
+            color: #cffafe !important;
+        }
+
+        html.dark .hover\:bg-gray-100:hover, html.dark .hover\:bg-gray-200:hover {
+            background-color: #475569 !important;
+        }
+
+        html.dark .hover\:bg-blue-50:hover {
+            background-color: #1e3a8a !important;
+        }
+
+        html.dark .bg-orange-100 {
+            background-color: #7c2d12 !important;
+            color: #ffedd5 !important;
+            border-color: #ea580c !important;
+        }
+
+        #floatingControlBar {
+            transition: left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), top 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.2s ease;
         }
     </style>
 </head>
-<body>
-<div class="header">
-    <div class="user-info">
-        {% if current_user.is_authenticated %}
-            Привет, {{ current_user.username }}!
-        {% else %}
-            Привет, Гость!
-        {% endif %}
+<body class="min-h-screen">
+
+<div id="toast-container"></div>
+
+<!-- Fixed Top Hotkeys Hint Bar (Visible only when day editing is active) -->
+<div id="hotkeysHintBar"
+     class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] hidden opacity-0 scale-95 transition-all duration-300 ease-out px-4 py-2.5 bg-slate-900/95 dark:bg-slate-800/95 text-white backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl flex items-center gap-3.5 text-xs sm:text-sm pointer-events-auto">
+    <div class="flex items-center gap-1.5 font-bold text-amber-400 border-r border-slate-700 pr-3">
+        <span class="material-icons text-amber-400 text-base animate-pulse">keyboard</span>
+        <span class="tracking-wider uppercase text-[11px]">Горячие клавиши</span>
     </div>
-    <div class="auth-links">
-        <button id="theme-toggle" class="btn-action">Сменить тему</button>
-        <button id="random-theme-btn" class="btn-action">Случайная тема</button>
-        {% if current_user.is_authenticated %}
-            <a href="{% url 'logout' %}" class="btn-action">Выйти</a>
-        {% else %}
-            <a href="{% url 'login' %}">Войти</a>
-            <a href="{% url 'register' %}">Зарегистрироваться</a>
-        {% endif %}
+    <div class="flex items-center gap-3">
+        <span class="inline-flex items-center gap-1.5">
+            <kbd class="px-2 py-0.5 bg-green-600 text-white rounded-md text-xs font-mono font-bold shadow-sm border border-green-500">Enter</kbd>
+            <span class="text-slate-200 text-xs font-semibold">Сохранить</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+            <kbd class="px-2 py-0.5 bg-blue-600 text-white rounded-md text-xs font-mono font-bold shadow-sm border border-blue-500">Space, "+"</kbd>
+            <span class="text-slate-200 text-xs font-semibold">Добавить слот</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+            <kbd class="px-2 py-0.5 bg-purple-600 text-white rounded-md text-xs font-mono font-bold shadow-sm border border-purple-500">T / Shift+T</kbd>
+            <span class="text-slate-200 text-xs font-semibold">Расчёт / UBERрасчёт</span>
+        </span>
+        <span class="inline-flex items-center gap-1.5">
+            <kbd class="px-2 py-0.5 bg-rose-600 text-white rounded-md text-xs font-mono font-bold shadow-sm border border-rose-500">Esc, "/"</kbd>
+            <span class="text-slate-200 text-xs font-semibold">Выход</span>
+        </span>
     </div>
 </div>
 
-<div class="import-section">
-    <h2>Импорт данных из файла</h2>
-    <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'import_data' %}">
-        {% csrf_token %}
-        <input type="file" name="file" id="file-input" required style="display: none;">
-        <label for="file-input" class="btn-action import-btn">Выберите файл</label>
-        <button type="submit" class="import-btn">Загрузить и импортировать</button>
-    </form>
-    <div id="import-status"></div>
-</div>
+<div class="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
+        <h1 class="text-2xl font-bold">
+            👋 {{ current_user_last_name }} {{ current_user_first_name }}
+        </h1>
+        {% if top_birthday_string %}
+            <div class="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-3 rounded shadow-sm text-sm">
+                🎉 <strong>Дни рождения:</strong> {{ top_birthday_string }}
+            </div>
+        {% endif %}
+    </header>
 
-<h1>Рабочее время сотрудника</h1>
+    <!-- Stats Bar -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <p class="text-sm text-gray-500 uppercase">Баланс за {{ prev_month_display }}</p>
+            <p class="text-xl font-mono {% if is_prev_month_balance_negative %}negative{% else %}positive{% endif %}">
+                {{ prev_month_balance }}
+            </p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <p class="text-sm text-gray-500 uppercase">Баланс за {{ current_month_display }}</p>
+            <p id="month-balance-total"
+               class="text-xl font-mono {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
+                {{ total_month_balance }}
+            </p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <p class="text-sm text-gray-500 uppercase">{{ today_phrase }}</p>
+            <p id="month-balance-today"
+               class="text-xl font-mono {% if is_today_balance_negative %}negative{% else %}positive{% endif %}">
+                {{ today_balance }} {% if is_today_balance_negative %}👎{% else %}👍{% endif %}
+            </p>
+        </div>
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+            <p class="text-sm text-gray-500 uppercase font-semibold">Перенос / Добавление</p>
+            <div class="flex items-center justify-between mt-1 text-sm">
+                <span class="text-gray-500">Перенесено:</span>
+                <span class="font-mono font-bold {% if is_transferred_negative %}negative{% else %}positive{% endif %}">
+                    {{ month_transferred_time }}
+                </span>
+            </div>
+            <div class="flex items-center justify-between mt-0.5 text-sm">
+                <span class="text-gray-500">Добавлено:</span>
+                <span class="font-mono font-bold {% if is_added_negative %}negative{% else %}positive{% endif %}">
+                    {{ month_added_time }}
+                </span>
+            </div>
+        </div>
+    </div>
 
-<div class="month-balance-container">
-    <span class="label month-balance-label">Баланс за {{ current_month_display }}:</span>
-    <span id="month-balance-total"
-          class="month-balance-display {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
-        {{ total_month_balance }}
-    </span>
-</div>
+    <nav class="flex flex-wrap items-center justify-between gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
+        <div class="flex flex-wrap items-center gap-2">
+            <a href="http://msk-oebs-app.sukhoi.company:8000/" target="_blank"
+               class="h-10 px-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 rounded-md text-sm font-medium transition-colors">ИСУ</a>
+            {#            <button onclick="toggleModal('suz-modal')" class="h-10 px-4 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 rounded-md text-sm font-medium transition-colors">OLD</button>#}
+            <a href="http://10.202.0.40:8000/static/files/BRV_counter.xlsx" download="BRV_counter.xlsx"
+               class="h-10 px-4 flex items-center justify-center bg-orange-100 hover:bg-orange-200 dark:bg-orange-700 dark:hover:bg-orange-600 dark:text-slate-100 rounded-md text-sm font-medium transition-colors">
+                OLD</a>
+            <button onclick="toggleModal('importModal')"
+                    class="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 rounded-md transition-colors"
+                    title="Экспорт .tsv"><span class="material-icons">file_download</span></button>
+            <button onclick="openTransferModal()"
+                    class="h-10 px-4 flex items-center justify-center gap-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:hover:bg-indigo-900/80 dark:text-indigo-200 rounded-md text-sm font-bold transition-colors"
+                    title="Дополнительные операции (МК, Отпуск/Командировка, перенос, добавление)"><span
+                    class="material-icons">tune</span><span>Дополнительно</span></button>
+            <a href="{% url 'time_manager' %}"
+               class="h-10 px-4 flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:hover:bg-blue-900/80 dark:text-blue-200 rounded-md text-sm font-bold transition-colors relative"
+               title="Планировщик задач">
+                <span class="material-icons">event_available</span>
+                <span>Планировщик</span>
+                {% if has_planner_notifications %}
+                    <span class="flex h-2.5 w-2.5 relative">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
+                    </span>
+                    <span class="px-1.5 py-0.5 text-[10px] bg-rose-500 text-white rounded-full font-bold leading-none shadow-sm">
+                        {{ total_planner_notifications }}
+                    </span>
+                {% endif %}
+            </a>
+            {% if user.is_department_head or user.is_superuser or user.is_staff %}
+                <a href="{% url 'department_stats' %}"
+                   class="h-10 px-4 flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-900/60 dark:hover:bg-purple-900/80 dark:text-purple-200 rounded-md text-sm font-bold transition-colors"
+                   title="Статистика вашего отдела">
+                    <span class="material-icons">groups</span>
+                    <span>Отдел</span>
+                </a>
+            {% endif %}
+            {% if user.is_superuser or user.is_staff %}
+                <a href="/admin/" target="_blank"
+                <a href="/admin/" target="_blank"
+                   class="h-10 px-4 flex items-center justify-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:hover:bg-amber-900/80 dark:text-amber-200 rounded-md text-sm font-bold transition-colors"
+                   title="Панель администратора">
+                    <span class="material-icons">admin_panel_settings</span>
+                    <span>Админка</span>
+                </a>
+            {% endif %}
+            {% if user.pk == 1 %}
+                <a href="https://msk-ouz-apps.sukhoi.company:1562/?user_id=eyJpdiI6ImR3cHQyV1RwRUtBb05TVVIzbFZKVkE9PSIsInZhbHVlIjoiRjlcL1Z5cjZvazZZZzFpQmlIVVwvSm9tZUdrMDF1ajhTd0Vqa01ZXC9qb1wvQ0o0MEt5a29VOE1VaGQ0R0ZFWVo5cnQifQ==&user_page_id=99f7b387-2941-474d-a58a-15a1a8ccd1b1"
+                   class="h-10 px-4 flex items-center justify-center bg-green-100 hover:bg-green-200 dark:bg-green-700 dark:hover:bg-green-600 dark:text-slate-100 rounded-md text-sm font-medium transition-colors">
+                    СУЗ</a>
+            {% endif %}
+        </div>
 
-<div class="month-navigation">
-    <button class="nav-btn" id="prev-month">← Предыдущий месяц</button>
-    <span class="current-month">{{ current_month_display }}</span>
-    <button class="nav-btn" id="next-month">Следующий месяц →</button>
-</div>
+        <div class="flex items-center gap-3">
+            <button id="prev-month"
+                    class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <span class="material-icons">chevron_left</span></button>
+            <div class="relative group">
+                <button class="h-10 px-4 bg-gray-50 border rounded-md font-bold flex items-center gap-2 transition-colors">
+                    {{ current_month_display }} <span class="text-xs">▼</span>
+                </button>
+                <div class="absolute hidden group-hover:block top-full left-0 w-48 bg-white border shadow-xl rounded-md z-50">
+                    {% for month_num, month_name in month_choices %}
+                        <a href="?date={{ current_year }}-{{ month_num|stringformat:'02d' }}"
+                           class="block px-4 py-2 hover:bg-blue-50 text-sm">
+                            {{ month_name }}
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+            <button id="next-month"
+                    class="w-10 h-10 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-slate-700 rounded-full transition-colors">
+                <span class="material-icons">chevron_right</span></button>
+        </div>
 
+        <div class="flex items-center gap-2">
+            <button id="theme-toggle-btn" onclick="toggleThemeMode()"
+                    class="w-10 h-10 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 rounded-md transition-colors"
+                    title="Сменить тему">
+                <span id="theme-toggle-icon" class="text-lg">🌙</span>
+            </button>
+            {% if user.is_authenticated %}
+                <a href="{% url 'logout' %}"
+                   class="h-10 px-4 flex items-center justify-center gap-1 bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/60 dark:text-red-200 rounded-md text-sm font-bold transition-colors"><span
+                        class="material-icons text-lg">logout</span><span>Выйти</span></a>
+            {% endif %}
+        </div>
+    </nav>
 
-{% for week in weekly_table_rows %}
-    <table class="week-table">
-        <thead>
-        <tr>
-            <th class="row-header"></th>
-            {% for day in week.dates %}
-                <th class="{% if not day.is_current_month %}other-month-day{% endif %}">
-                    {{ day.date_obj|date:'D d.m' }}
-                </th>
-            {% endfor %}
-        </tr>
-        </thead>
-        <tbody>
-        <tr>
-            <th class="row-header">Тип дня</th>
-            {% for cell_data in week.types %}
-                <td>
-                    {% if cell_data.is_current_month %}
-                        <span class="day-type-display" id="day-type-display-{{ cell_data.id }}">
-                                {{ cell_data.display }}
-                            </span>
-                        <select id="day-type-{{ cell_data.id }}" class="day-type-select"
-                                data-day-id="{{ cell_data.id }}" style="display:none;">
-                            <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Рабочий день</option>
-                            <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной</option>
-                            <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день
-                            </option>
-                            <option value="HD" {% if cell_data.type == 'HD' %}selected{% endif %}>Праздник</option>
-                            <option value="VL" {% if cell_data.type == 'VL' %}selected{% endif %}>Отпуск</option>
-                        </select>
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
-
-        <tr>
-            <th class="row-header">Время</th>
-            {% for cell_data in week.times %}
-                <td>
-                    {% if cell_data %}
-                        {% for time_pair in cell_data %}
-                            <div class="time-pair-group {% if time_pair.entry_type == 'mk' %}mk-highlight{% else %}default-highlight{% endif %}"
-                                 data-order="{{ time_pair.order }}"
-                                 data-day-id="{{ time_pair.day_id }}"
-                                 data-entry-type="{{ time_pair.entry_type|default:'default' }}">
-                                <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}"
-                                     data-order="{{ time_pair.order }}">
-                                    <span class="mk-label"
-                                          style="{% if time_pair.entry_type != 'mk' %}display:none;{% endif %}">МК:</span>
-
-                                    <span class="time-display entry-display">{{ time_pair.entry_time|default:"-" }}</span>
-                                    <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}"
-                                           style="display:none;">
-                                    <span class="time-display exit-display">{{ time_pair.exit_time|default:"-" }}</span>
-                                    <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}"
-                                           style="display:none;">
-                                    <button type="button" class="btn-remove-pair" style="display:none;">-</button>
+    <!-- Main Table Container -->
+    <div class="overflow-x-auto bg-white rounded-lg shadow">
+        <div id="weeks-container">
+            {% for week in weekly_table_rows %}
+                <table class="w-full border-collapse border border-gray-300 dark:border-slate-700 mb-8 text-base">
+                    <thead>
+                    <tr class="bg-gray-50 dark:bg-slate-900">
+                        <th class="p-2 border border-gray-300 dark:border-slate-700 w-32 bg-gray-100 dark:bg-slate-900"></th>
+                        {% for day in week.dates %}
+                            <th class="p-2 border border-gray-300 dark:border-slate-700 min-w-[140px] {% if day.is_today %}bg-blue-600 text-white font-bold ring-2 ring-blue-500 shadow-md{% endif %} {% if not day.is_current_month %}opacity-40{% endif %}"
+                                {% if day.is_holiday and day.holiday_desc %}title="{{ day.holiday_desc }}"{% endif %}>
+                                <div class="flex flex-col items-center">
+                                    {% if day.is_today %}
+                                        <span class="text-[10px] uppercase font-extrabold tracking-wider bg-white text-blue-700 px-1.5 py-0.5 rounded shadow-sm mb-1">{{ today_phrase }}</span>{% endif %}
+                                    <div class="flex items-center gap-1">
+                                        <span>{{ day.day_name_ru }} {{ day.date_obj|date:'d.m' }}</span>
+                                        {% if day.is_holiday %}
+                                            <span title="{{ day.holiday_desc|default:'Праздник' }}"
+                                                  class="holiday-animated cursor-help text-sm">🎉</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if day.is_birthday %}
+                                        <span title="{{ day.birthday_person }}" class="cursor-help">🎂</span>
+                                    {% endif %}
                                 </div>
+                            </th>
+                        {% endfor %}
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <!-- Тип дня -->
+                    <tr>
+                        <td class="p-2 border border-gray-300 dark:border-slate-700 font-semibold">Тип дня</td>
+                        {% for cell in week.types %}
+                            <td class="p-2 border border-gray-300 dark:border-slate-700 text-center type-{{ cell.type }} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}"
+                                {% if cell.holiday_desc %}title="{{ cell.holiday_desc }}"{% endif %}>
+                                {% if cell.is_current_month %}
+                                    <div class="day-cell" data-day-id="{{ cell.id }}">
+                                        <span class="day-type-display cursor-pointer hover:underline {% if cell.type == 'HD' %}holiday-animated{% endif %}"
+                                              id="day-type-display-{{ cell.id }}">{{ cell.display }}</span>
+                                        <select id="day-type-{{ cell.id }}"
+                                                class="day-type-select hidden w-full p-1 border rounded text-xs bg-white"
+                                                data-day-id="{{ cell.id }}">
+                                            <option value="ND" {% if cell.type == 'ND' %}selected{% endif %}>Рабочий
+                                            </option>
+                                            <option value="WD" {% if cell.type == 'WD' %}selected{% endif %}>Выходной
+                                            </option>
+                                            <option value="SMD" {% if cell.type == 'SMD' %}selected{% endif %}>
+                                                Короткий
+                                            </option>
+                                            <option value="HD" {% if cell.type == 'HD' %}selected{% endif %}>Праздник
+                                            </option>
+                                            <option value="VL" {% if cell.type == 'VL' %}selected{% endif %}>Отпуск
+                                            </option>
+                                            <option value="MK" {% if cell.type == 'MK' %}selected{% endif %}>
+                                                Больничный
+                                            </option>
+                                            <option value="KMD" {% if cell.type == 'KMD' %}selected{% endif %}>
+                                                Командировка
+                                            </option>
+                                        </select>
+                                    </div>
+                                {% else %}
+                                    <span class="text-gray-400 dark:text-slate-500 font-normal">-</span>{% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Время -->
+                    <tr>
+                        <td class="p-2 border border-gray-300 dark:border-slate-700 font-semibold">Время</td>
+                        {% for cell_times in week.times %}
+                            <td id="time-cell-{{ cell_times.id }}" data-day-id="{{ cell_times.id }}"
+                                class="time-cell p-2 border border-gray-300 dark:border-slate-700 align-top text-center {% if cell_times.is_today %}border-x-2 border-blue-400{% endif %}">
+                                {% if cell_times.pairs %}
+                                    {% for pair in cell_times.pairs %}
+                                        <div class="time-pair-group mb-2 p-1 {% if pair.entry_type == 'mk' %}mk-highlight{% endif %} {% if pair.is_calculated %}calculated-time-highlight{% endif %}"
+                                             data-day-id="{{ pair.day_id }}" data-order="{{ pair.order }}"
+                                             data-entry-type="{{ pair.entry_type }}"
+                                             data-is-calculated="{{ pair.is_calculated|lower }}">
+                                            <div class="flex flex-col gap-1.5 items-center w-full">
+                                                <div class="flex justify-center items-center gap-1 font-mono text-sm text-center w-full">
+                                                    <span class="time-display entry-display cursor-pointer hover:text-blue-600 px-1">{{ pair.entry_time|default:"--:--" }}</span>
+                                                    <input type="text" placeholder="HH:MM" maxlength="5"
+                                                           pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+                                                           class="time-input entry-input hidden w-[64px] border rounded text-center font-mono text-sm p-1 bg-white"
+                                                           value="{{ pair.entry_time }}">
+
+                                                    <span class="px-0.5 text-gray-400 font-normal">|</span>
+
+                                                    <span class="time-display exit-display cursor-pointer hover:text-blue-600 px-1">{{ pair.exit_time|default:"--:--" }}</span>
+                                                    <input type="text" placeholder="HH:MM" maxlength="5"
+                                                           pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+                                                           class="time-input exit-input hidden w-[64px] border rounded text-center font-mono text-sm p-1 bg-white"
+                                                           value="{{ pair.exit_time }}">
+
+                                                    <button type="button"
+                                                            class="btn-remove-pair hidden text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                                                            title="Удалить слот"><span class="material-icons text-base">delete</span>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center gap-1 w-full mt-1">
+                                                    <button type="button" class="btn-calculate-exit hidden flex-1 py-1 text-[11px] font-bold bg-green-600 hover:bg-green-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors"
+                                                            title="Расчёт нормы времени (Горячая клавиша: T)"><span class="material-icons text-xs">calculate</span><span>Расчёт</span>
+                                                    </button>
+                                                    <button type="button" class="btn-calculate-zero hidden flex-1 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors"
+                                                            title="Расчёт выхода с учётом имеющегося минуса/баланса (Shift+T)"><span class="material-icons text-xs">calculate</span><span>UBERрасчёт</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                                {% if cell_times.is_current_month %}
+                                    <div id="actions-{{ cell_times.id }}"
+                                         class="actions-group flex flex-wrap gap-1 justify-center mt-2">
+                                        <button data-day-id="{{ cell_times.id }}"
+                                                class="btn-save hidden w-7 h-7 flex items-center justify-center bg-green-600 hover:bg-green-700 text-white rounded-md shadow-sm transition-colors"
+                                                title="Сохранить"><span class="material-icons text-sm">save</span>
+                                        </button>
+                                        <button data-day-id="{{ cell_times.id }}"
+                                                class="btn-add-time hidden w-7 h-7 flex items-center justify-center bg-blue-500 hover:bg-blue-600 text-white rounded-md shadow-sm transition-colors"
+                                                title="Добавить слот"><span class="material-icons text-sm">add</span>
+                                        </button>
+                                        <button data-day-id="{{ cell_times.id }}"
+                                                class="btn-cancel hidden w-7 h-7 flex items-center justify-center bg-gray-400 hover:bg-gray-500 text-white rounded-md shadow-sm transition-colors"
+                                                title="Отмена"><span class="material-icons text-sm">close</span>
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Итого -->
+                    <tr class="bg-gray-50/30 dark:bg-slate-900/30">
+                        <td class="p-2 border border-gray-300 dark:border-slate-700 font-semibold">Итого</td>
+                        {% for cell in week.total_time %}
+                            <td class="p-2 border border-gray-300 dark:border-slate-700 text-center font-mono {% if cell.is_today %}border-x-2 border-blue-400{% endif %}"
+                                id="total-time-{{ cell.id }}">{{ cell.value|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Баланс дня -->
+                    <tr>
+                        <td class="p-2 border border-gray-300 dark:border-slate-700 font-semibold">Баланс</td>
+                        {% for cell in week.day_balance %}
+                            <td class="p-2 border border-gray-300 dark:border-slate-700 text-center font-mono {% if cell.is_negative %}negative{% elif cell.value and cell.value != '00:00' and cell.value != '-00:00' %}positive{% endif %} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}">{{ cell.value|default:"-" }}</td>
+                        {% endfor %}
+                    </tr>
+
+                    <!-- Накопительный -->
+                    <tr class="bg-blue-50/50 dark:bg-slate-900/50">
+                        <td class="p-2 border border-gray-300 dark:border-slate-700 font-semibold">Накоп.</td>
+                        {% for cell in week.cumulative_balance %}
+                            <td class="p-2 border border-gray-300 dark:border-slate-700 text-center font-mono font-bold {% if cell.is_negative %}negative{% else %}positive{% endif %} {% if cell.is_today %}border-x-2 border-blue-400{% endif %}">
+                                {{ cell.value|default:"-" }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    </tbody>
+                </table>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Bottom Action -->
+    <div class="mt-8 flex justify-center">
+        <button id="save-all-btn"
+                class="h-12 px-8 btn-theme rounded-md font-bold shadow-lg flex items-center justify-center gap-2 transition-all duration-200">
+            <span class="material-icons">save</span><span>Сохранить все изменения на странице</span>
+        </button>
+    </div>
+</div>
+
+<!-- Floating Action Panel positioned smoothly under active day -->
+<div id="floatingControlBar"
+     class="absolute hidden z-50 flex items-center justify-center gap-1.5 p-2 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md rounded-2xl shadow-xl border border-blue-200 dark:border-slate-700 pointer-events-auto">
+    <div class="hidden sm:flex flex-col items-center pr-2 border-r border-gray-200 dark:border-slate-700 text-[11px] select-none">
+        <span class="text-[9px] uppercase font-extrabold tracking-wider text-gray-400 dark:text-slate-400">День</span>
+        <span id="floatingDayLabel"
+              class="font-bold text-gray-800 dark:text-slate-100 truncate max-w-[80px]">--.--</span>
+    </div>
+    <button id="floatingSaveBtn" onclick="saveActiveDay()"
+            class="h-8 px-2.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1 transition-all duration-150 active:scale-95"
+            title="Сохранить день (Enter)">
+        <span class="material-icons text-sm">save</span>
+        <span>Сохранить</span>
+    </button>
+    <button id="floatingAddBtn" onclick="addTimeSlotToActiveDay()"
+            class="h-8 px-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1 transition-all duration-150 active:scale-95"
+            title="Добавить тайм-слот (Space)">
+        <span class="material-icons text-sm">add</span>
+        <span>Добавить</span>
+    </button>
+    <button id="floatingCloseBtn" onclick="cancelEditingActiveDay()"
+            class="h-8 px-2.5 bg-slate-500 hover:bg-slate-600 active:bg-slate-700 text-white rounded-xl text-xs font-bold shadow-md flex items-center justify-center gap-1 transition-all duration-150 active:scale-95"
+            title="Закрыть редактирование (Esc)">
+        <span class="material-icons text-sm">close</span>
+        <span>Закрыть</span>
+    </button>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<!-- SUZ Modal -->
+<div id="suz-modal" class="fixed inset-0 bg-black/50 hidden z-[100] items-center justify-center p-4">
+    <div class="bg-white rounded-xl max-w-md w-full p-6">
+        <h3 class="text-xl font-bold mb-4">Интеграция с СУЗ</h3>
+        <p class="text-sm text-gray-600 mb-4">Вставьте JSON из СУЗ для получения прямой ссылки на ИСУ.</p>
+        <input type="text" id="suz-json-input" placeholder="Ctrl + V сюда"
+               class="w-full p-2 border rounded-md mb-4 outline-none focus:ring-2 ring-blue-500">
+        <div class="flex justify-end gap-2">
+            <button onclick="toggleModal('suz-modal')"
+                    class="h-10 px-4 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md text-sm transition-colors">
+                Закрыть
+            </button>
+            <button onclick="parseAndRedirect()"
+                    class="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors">
+                Перейти
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Import/Export Modal -->
+<div id="importModal" class="fixed inset-0 bg-black/50 hidden z-[100] items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full p-6 shadow-xl border border-gray-200 dark:border-slate-700">
+        <h3 class="text-xl font-bold mb-4 dark:text-slate-100">Экспорт из ИСУ (.tsv)</h3>
+        <input type="file" id="customFileInput" accept=".tsv" class="mb-4 text-sm dark:text-slate-200">
+        <div id="import-status-modal" class="text-sm mb-4"></div>
+        <div class="flex justify-end gap-2">
+            <button onclick="toggleModal('importModal')"
+                    class="h-10 px-4 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md text-sm transition-colors">
+                Отмена
+            </button>
+            <button id="importApply"
+                    class="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-bold transition-colors flex items-center gap-2">
+                <span>Загрузить</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Transfer / Extra Operations Modal -->
+<div id="transferModal" data-is-prev-negative="{{ is_prev_month_balance_negative|yesno:'true,false' }}"
+     data-prev-display="{{ prev_month_display }}" data-prev-balance="{{ prev_month_balance }}"
+     class="fixed inset-0 bg-black/50 hidden z-[100] items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-xl max-w-xl w-full p-6 shadow-xl border border-gray-200 dark:border-slate-700 max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center mb-3 shrink-0">
+            <h3 class="text-xl font-bold flex items-center gap-2 dark:text-slate-100">⚙️ Дополнительно</h3>
+            <button onclick="toggleModal('transferModal')"
+                    class="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <span class="material-icons">close</span></button>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="flex border-b border-gray-200 dark:border-slate-700 mb-3 shrink-0 overflow-x-auto gap-1">
+            <button type="button" id="tabMkBtn" onclick="switchTransferTab('mk')"
+                    class="py-2 px-3 font-bold text-xs sm:text-sm border-b-2 border-cyan-600 text-cyan-600 dark:text-cyan-400 dark:border-cyan-400 focus:outline-none transition-colors whitespace-nowrap">
+                🏥 Добавить МК
+            </button>
+            <button type="button" id="tabVacationBtn" onclick="switchTransferTab('vacation')"
+                    class="py-2 px-3 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 border-b-2 border-transparent focus:outline-none transition-colors whitespace-nowrap">
+                🏖️ Отпуск
+            </button>
+            <button type="button" id="tabTransferBtn" onclick="switchTransferTab('transfer')"
+                    class="py-2 px-3 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 border-b-2 border-transparent focus:outline-none transition-colors whitespace-nowrap">
+                🔄 Перенос
+            </button>
+            <button type="button" id="tabAdditionBtn" onclick="switchTransferTab('addition')"
+                    class="py-2 px-3 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 border-b-2 border-transparent focus:outline-none transition-colors whitespace-nowrap">
+                ✨ Добавление
+            </button>
+        </div>
+
+        <div class="overflow-y-auto pr-1 space-y-4 grow">
+            <!-- Info Box -->
+            <div id="transferModalInfo"
+                 class="p-3 bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-200 rounded-md text-xs">
+                🏥 <strong>Внесение МК:</strong> укажите дату и время интервала (или используйте кнопку Весь день).
+            </div>
+
+            <!-- MK Form fields -->
+            <div id="mkFormFields" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Дата МК</label>
+                    <input type="date" id="mkDate"
+                           class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+
+                <div class="flex items-center justify-between bg-gray-50 dark:bg-slate-700/50 p-2.5 rounded-md">
+                    <span class="text-xs font-bold text-gray-600 dark:text-gray-300">Способ ввода:</span>
+                    <div class="flex items-center gap-4 text-xs">
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer font-medium text-gray-700 dark:text-slate-200">
+                            <input type="radio" name="mkMode" value="times" checked onchange="toggleMkMode('times')"
+                                   class="text-cyan-600 focus:ring-cyan-500">
+                            <span>Вход / Выход</span>
+                        </label>
+                        <label class="inline-flex items-center gap-1.5 cursor-pointer font-medium text-gray-700 dark:text-slate-200">
+                            <input type="radio" name="mkMode" value="hours" onchange="toggleMkMode('hours')"
+                                   class="text-cyan-600 focus:ring-cyan-500">
+                            <span>Вход + Часы</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Время входа
+                            (ЧЧ:ММ)</label>
+                        <input type="text" id="mkEntryTime" placeholder="08:30" maxlength="5"
+                               class="time-input w-full p-2 border rounded-md text-sm font-mono bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                               value="08:30"
+                               oninput="if(document.querySelector('input[name=mkMode]:checked').value==='hours') calculateExitFromHours()">
+                    </div>
+                    <div id="mkExitTimeWrapper">
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Время выхода
+                            (ЧЧ:ММ)</label>
+                        <input type="text" id="mkExitTime" placeholder="17:15" maxlength="5"
+                               class="time-input w-full p-2 border rounded-md text-sm font-mono bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                               value="17:15">
+                    </div>
+                    <div id="mkHoursWrapper" class="hidden">
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Количество
+                            часов</label>
+                        <input type="number" id="mkHours" placeholder="8" step="0.5" min="0.5" max="24"
+                               class="w-full p-2 border rounded-md text-sm font-mono bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                               value="8" oninput="calculateExitFromHours()">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                    <button type="button" onclick="setMkFullDay()"
+                            class="h-9 px-3 bg-cyan-50 hover:bg-cyan-100 text-cyan-700 dark:bg-cyan-900/60 dark:hover:bg-cyan-900/80 dark:text-cyan-200 rounded-md text-xs font-bold transition-colors flex items-center gap-1.5"
+                            title="Заполнить полный день по вашему типу учетной записи">
+                        <span class="material-icons text-sm">wb_sunny</span>
+                        <span>Весь день</span>
+                    </button>
+                    <span id="mkFullDayHint"
+                          class="text-[11px] text-gray-500 dark:text-slate-400">Тип: {{ user.get_account_type_display|default:"Полный день" }}</span>
+                </div>
+            </div>
+
+            <!-- Vacation / Business Trip Form fields -->
+            <div id="vacationFormFields" class="space-y-3 hidden">
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Тип дня</label>
+                    <select id="vacType"
+                            class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                        <option value="VL">Отпуск</option>
+                        <option value="ND">Рабочий</option>
+                        <option value="WD">Выходной</option>
+                        <option value="MK">Больничный</option>
+                        <option value="KMD">Командировка</option>
+                        <option value="SMD">Короткий день</option>
+                        <option value="HD">Праздник</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Дата начала
+                            (ДД.ММ)</label>
+                        <input type="text" id="vacStart" placeholder="ДД.ММ" maxlength="5"
+                               class="date-ddmm-input w-full p-2 border rounded-md text-sm font-mono text-center bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Дата окончания
+                            (ДД.ММ)</label>
+                        <input type="text" id="vacEnd" placeholder="ДД.ММ" maxlength="5"
+                               class="date-ddmm-input w-full p-2 border rounded-md text-sm font-mono text-center bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Кол-во дней</label>
+                    <input type="number" id="vacDays" value="1" min="1"
+                           class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+            </div>
+
+            <!-- Transfer / Addition Form fields -->
+            <div id="transferFormFields" class="space-y-3 hidden">
+                <div id="fromMonthContainer">
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Списать из
+                        месяца</label>
+                    <input type="month" id="transferFromMonth"
+                           class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+
+                <div>
+                    <label id="toMonthLabel" class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Зачислить
+                        в месяц</label>
+                    <input type="month" id="transferToMonth"
+                           class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Количество времени
+                        (ЧЧ:ММ)</label>
+                    <input type="text" id="transferAmount" placeholder="01:30" maxlength="5"
+                           class="time-input w-full p-2 border rounded-md text-sm font-mono bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100"
+                           value="01:00">
+                </div>
+
+                <div>
+                    <label id="descriptionLabel" class="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">Описание
+                        / Комментарий</label>
+                    <input type="text" id="transferDescription"
+                           placeholder="Например: Перенос остатка или Премия за дежурство"
+                           class="w-full p-2 border rounded-md text-sm bg-white dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
+                </div>
+            </div>
+
+            <!-- Existing Transfers / Additions List -->
+            {% if month_transfers_list %}
+                <div id="transferHistoryList" class="pt-4 border-t border-gray-200 dark:border-slate-700 hidden">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-slate-400 mb-2">📋
+                        История за текущий месяц</h4>
+                    <div class="space-y-2 max-h-40 overflow-y-auto">
+                        {% for tr in month_transfers_list %}
+                            <div class="flex items-center justify-between p-2 rounded bg-gray-50 dark:bg-slate-700/50 border border-gray-100 dark:border-slate-700 text-xs">
+                                <div class="flex flex-col">
+                                    <div class="font-bold flex items-center gap-1">
+                                        {% if tr.is_addition %}
+                                            <span class="text-emerald-600 dark:text-emerald-400">✨ Добавление</span>
+                                        {% else %}
+                                            <span class="text-indigo-600 dark:text-indigo-400">🔄 Перенос ({{ tr.from_display }} ➔ {{ tr.to_display }})</span>
+                                        {% endif %}
+                                        <span class="font-mono bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-slate-600">{{ tr.amount_str }}</span>
+                                    </div>
+                                    {% if tr.description %}
+                                        <div class="text-gray-600 dark:text-slate-300 text-[11px] mt-0.5">{{ tr.description }}</div>
+                                    {% endif %}
+                                </div>
+                                <button onclick="deleteTimeTransfer('{{ tr.id }}')" title="Удалить"
+                                        class="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-1 transition-colors">
+                                    <span class="material-icons text-base">delete</span>
+                                </button>
                             </div>
                         {% endfor %}
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
 
-        <tr>
-            <th class="row-header">Итого за день</th>
-            {% for cell_data in week.total_time %}
-                <td>
-                    {% if cell_data %}
-                        <span class="total-time-display" id="total-time-{{ cell_data.id }}">
-                                {{ cell_data.value }}
-                            </span>
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
+        <div class="flex justify-end gap-2 mt-4 pt-3 border-t border-gray-200 dark:border-slate-700 shrink-0">
+            <button onclick="toggleModal('transferModal')"
+                    class="h-10 px-4 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-md text-sm transition-colors">
+                Отмена
+            </button>
+            <button id="applyTransferBtn" onclick="submitModalAction()"
+                    class="h-10 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-sm font-bold transition-colors">
+                Сохранить МК
+            </button>
+        </div>
+    </div>
+</div>
 
-        <tr>
-            <th class="row-header">Баланс за день</th>
-            {% for cell_data in week.day_balance %}
-                <td>
-                    {% if cell_data %}
-                        <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}"
-                              id="day-balance-{{ cell_data.id }}">
-                                {{ cell_data.value }}
-                            </span>
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
-        <tr>
-            <th class="row-header">Накоп. баланс</th>
-            {% for cell_data in week.cumulative_balance %}
-                <td>
-                    {% if cell_data.is_current_month %}
-                        <span class="cumulative-balance-display {% if cell_data.is_negative %}negative{% endif %}"
-                              id="cumulative-balance-{{ cell_data.id }}">
-                                {{ cell_data.value }}
-                            </span>
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
-
-        <tr>
-            <th class="row-header">Действия</th>
-            {% for cell_data in week.actions %}
-                <td>
-                    {% if cell_data.is_current_month %}
-                        <div class="actions-container" id="actions-{{ cell_data.id }}">
-                            <button type="button" class="btn-action btn-add-time" data-day-id="{{ cell_data.id }}"
-                                    style="display:none;">+
-                            </button>
-                            <button type="button" class="btn-action btn-add-mk" data-day-id="{{ cell_data.id }}"
-                                    style="display:none;">МК
-                            </button>
-                            <button type="button" class="btn-action btn-edit" data-day-id="{{ cell_data.id }}">...
-                            </button>
-                            <button type="button" class="btn-action btn-save" data-day-id="{{ cell_data.id }}"
-                                    style="display:none;">✔
-                            </button>
-                            <button type="button" class="btn-action btn-cancel" data-day-id="{{ cell_data.id }}"
-                                    style="display:none;">✘
-                            </button>
-                        </div>
-                    {% endif %}
-                </td>
-            {% endfor %}
-        </tr>
-        </tbody>
-    </table>
-{% endfor %}
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const csrftoken = getCookie('csrftoken');
-        const themeToggleBtn = document.getElementById('theme-toggle');
-        const randomThemeBtn = document.getElementById('random-theme-btn');
-        const body = document.body;
-        const root = document.documentElement;
+    const CSRF_TOKEN = '{{ csrf_token }}';
 
-        // --- Управление темами ---
-
-        // Функция для применения сохраненных цветов
-        function applySavedColors(colors) {
-            if (!colors) return;
-
-            const themeColors = JSON.parse(colors);
-            root.style.setProperty('--bg-color', themeColors.bgColor);
-            root.style.setProperty('--text-color', themeColors.textColor);
-            root.style.setProperty('--header-bg-color', themeColors.headerColor);
-            root.style.setProperty('--table-border-color', themeColors.tableBorderColor);
-            root.style.setProperty('--row-header-bg-color', themeColors.rowHeaderColor);
-            root.style.setProperty('--month-balance-bg', themeColors.monthBalanceBg);
-            root.style.setProperty('--month-balance-text', themeColors.monthBalanceText);
-            root.style.setProperty('--positive-color', themeColors.positiveColor);
-            root.style.setProperty('--negative-color', themeColors.negativeColor);
-            root.style.setProperty('--input-bg-color', themeColors.inputBgColor);
-            root.style.setProperty('--input-text-color', themeColors.inputTextcolor);
-            root.style.setProperty('--input-border-color', themeColors.inputBorderColor);
-        }
-
-        // Проверяем, есть ли сохраненная тема при загрузке страницы
-        const savedTheme = localStorage.getItem('theme');
-        const savedColors = localStorage.getItem('randomColors');
-
-        if (savedTheme === 'dark-theme') {
-            body.classList.add('dark-theme');
-        } else if (savedTheme === 'random-theme') {
-            body.classList.add('random-theme');
-            applySavedColors(savedColors);
-        }
-
-        // Обработчик для переключения между светлой и тёмной темой
-        themeToggleBtn.addEventListener('click', () => {
-            body.classList.toggle('dark-theme');
-            body.classList.remove('random-theme');
-
-            if (body.classList.contains('dark-theme')) {
-                localStorage.setItem('theme', 'dark-theme');
-            } else {
-                localStorage.removeItem('theme'); // Удаляем тему
-            }
-            localStorage.removeItem('randomColors'); // Очищаем сохраненные случайные цвета
-        });
-
-        // Функция для генерации случайного цвета в формате HEX
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
-        }
-
-        // Обработчик для случайной темы
-        randomThemeBtn.addEventListener('click', () => {
-            body.classList.add('random-theme');
-            body.classList.remove('dark-theme');
-
-            // Генерируем и сохраняем цвета
-            const themeColors = {
-                bgColor: getRandomColor(),
-                textColor: getRandomColor(),
-                headerColor: getRandomColor(),
-                tableBorderColor: getRandomColor(),
-                rowHeaderColor: getRandomColor(),
-                monthBalanceBg: getRandomColor(),
-                monthBalanceText: getRandomColor(),
-                positiveColor: getRandomColor(),
-                negativeColor: getRandomColor(),
-                inputBgColor: getRandomColor(),
-                inputTextcolor: getRandomColor(),
-                inputBorderColor: getRandomColor()
-            };
-
-            // Применяем цвета к переменным CSS
-            applySavedColors(JSON.stringify(themeColors));
-
-            // Сохраняем тему и цвета в localStorage
-            localStorage.setItem('theme', 'random-theme');
-            localStorage.setItem('randomColors', JSON.stringify(themeColors));
-        });
-
-        // --- Основная функциональность страницы ---
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie) {
-                document.cookie.split(';').forEach(cookie => {
-                    cookie = cookie.trim();
-                    if (cookie.startsWith(name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    }
-                });
-            }
-            return cookieValue;
-        }
-
-        // Навигация
-        document.getElementById('prev-month').addEventListener('click', () => {
-            const currentDate = new Date('{{ selected_date }}T00:00:00');
-            currentDate.setMonth(currentDate.getMonth() - 1);
-            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
-        });
-        document.getElementById('next-month').addEventListener('click', () => {
-            const currentDate = new Date('{{ selected_date }}T00:00:00');
-            currentDate.setMonth(currentDate.getMonth() + 1);
-            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
-        });
-
-        function getDayElements(dayId) {
-            const elements = {};
-            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
-            elements.dayTypeDisplay = document.querySelector(`#day-type-display-${dayId}`);
-            elements.timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
-            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
-            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
-            elements.cumulativeBalanceDisplay = document.getElementById(`cumulative-balance-${dayId}`);
-            const actionButtonContainer = document.querySelector(`#actions-${dayId}`);
-            elements.editBtn = actionButtonContainer.querySelector('.btn-edit');
-            elements.saveBtn = actionButtonContainer.querySelector('.btn-save');
-            elements.addNewPairBtn = actionButtonContainer.querySelector('.btn-add-time');
-            elements.addNewMKBtn = actionButtonContainer.querySelector('.btn-add-mk');
-            elements.cancelBtn = actionButtonContainer.querySelector('.btn-cancel');
-            return elements;
-        }
-
-        // Редактирование
-        document.querySelectorAll('.btn-edit').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const dayId = this.dataset.dayId;
-                const elements = getDayElements(dayId);
-
-                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
-                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'inline-block';
-
-                elements.timePairGroups.forEach(pairGroup => {
-                    pairGroup.querySelectorAll('.time-input').forEach(input => input.style.display = 'inline-block');
-                    pairGroup.querySelectorAll('.time-display').forEach(span => span.style.display = 'none');
-
-                    const removeButton = pairGroup.querySelector('.btn-remove-pair');
-                    if (removeButton) {
-                        removeButton.style.display = 'inline-block';
-                    }
-                });
-
-                elements.saveBtn.style.display = 'inline-block';
-                elements.addNewPairBtn.style.display = 'inline-block';
-                elements.addNewMKBtn.style.display = 'inline-block';
-                elements.cancelBtn.style.display = 'inline-block';
-                elements.editBtn.style.display = 'none';
-            });
-        });
-
-        // Отмена
-        document.querySelectorAll('.btn-cancel').forEach(btn => {
-            btn.addEventListener('click', function () {
-                location.reload();
-            });
-        });
-
-        // Сохранение
-        document.querySelectorAll('.btn-save').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const dayId = this.dataset.dayId;
-                const elements = getDayElements(dayId);
-                const timeData = {
-                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
-                    time_entries: [],
-                    dayId: dayId
-                };
-                const updatedPairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
-                let order = 0;
-                updatedPairGroups.forEach(pairGroup => {
-                    const entryInput = pairGroup.querySelector('.entry-input');
-                    const exitInput = pairGroup.querySelector('.exit-input');
-                    const entryType = pairGroup.dataset.entryType || 'default';
-
-                    pairGroup.dataset.order = order;
-                    pairGroup.querySelector('.time-entry-row').dataset.order = order;
-
-                    if (entryInput && entryInput.value) {
-                        timeData.time_entries.push({
-                            type: 'EG',
-                            time: entryInput.value,
-                            order: order,
-                            entry_type: entryType
-                        });
-                    }
-                    if (exitInput && exitInput.value) {
-                        timeData.time_entries.push({
-                            type: 'OG',
-                            time: exitInput.value,
-                            order: order,
-                            entry_type: entryType
-                        });
-                    }
-                    order++;
-                });
-                fetch('{% url "update_work_times" %}', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                    body: JSON.stringify(timeData)
-                })
-                    .then(r => r.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert('Данные успешно сохранены!');
-                            location.reload();
-                        } else {
-                            alert('Ошибка сохранения: ' + data.message);
-                        }
-                    })
-                    .catch(err => alert('Ошибка: ' + err));
-            });
-        });
-
-        // Добавить пару
-        document.querySelectorAll('.btn-add-time').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const dayId = this.dataset.dayId;
-                const elements = getDayElements(dayId);
-                const newOrder = elements.timePairGroups.length;
-                const newPair = document.createElement('div');
-                newPair.className = 'time-pair-group default-highlight';
-                newPair.dataset.dayId = dayId;
-                newPair.dataset.order = newOrder;
-                newPair.dataset.entryType = 'default';
-                newPair.innerHTML = `
-                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
-                    <span class="time-display entry-display" style="display:none;">-</span>
-                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
-                    <span class="time-display exit-display" style="display:none;">-</span>
-                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
-                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
-                </div>`;
-                const timeTd = elements.timePairGroups[0].closest('td');
-                timeTd.appendChild(newPair);
-            });
-        });
-
-        // Добавить МК
-        document.querySelectorAll('.btn-add-mk').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const dayId = this.dataset.dayId;
-                const elements = getDayElements(dayId);
-                const newOrder = elements.timePairGroups.length;
-                const newPair = document.createElement('div');
-                newPair.className = 'time-pair-group mk-highlight';
-                newPair.dataset.dayId = dayId;
-                newPair.dataset.order = newOrder;
-                newPair.dataset.entryType = 'mk';
-                newPair.innerHTML = `
-                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
-                    <span class="time-display entry-display" style="display:none;">-</span>
-                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
-                    <span class="time-display exit-display" style="display:none;">-</span>
-                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
-                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
-                </div>`;
-                const timeTd = elements.timePairGroups[0].closest('td');
-                timeTd.appendChild(newPair);
-            });
-        });
-
-        // Удалить конкретную пару
-        document.addEventListener('click', function (e) {
-            if (e.target.classList.contains('btn-remove-pair')) {
-                const pairGroup = e.target.closest('.time-pair-group');
-                if (pairGroup) {
-                    pairGroup.remove();
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
                 }
             }
-        });
+        }
+        return cookieValue;
+    }
 
-        // Обработчик для импорта данных
-        document.getElementById('upload-form').addEventListener('submit', function (e) {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            const statusDiv = document.getElementById('import-status');
-            statusDiv.innerHTML = 'Импортирую... Пожалуйста, подождите.';
+    function showToast(text, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = `toast ${type === 'error' ? 'bg-red-600' : 'bg-gray-800'}`;
+        toast.innerText = text;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
 
-            fetch(form.action, {
+    function toggleModal(id) {
+        const modal = document.getElementById(id);
+        if (modal) {
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+    }
+
+    function applyTheme(theme) {
+        const isDark = theme === 'dark';
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        const icon = document.getElementById('theme-toggle-icon');
+        const text = document.getElementById('theme-toggle-text');
+        if (icon) {
+            icon.innerText = isDark ? '☀️' : '🌙';
+        }
+        if (text) text.innerText = isDark ? 'Дневная тема' : 'Ночная тема';
+    }
+
+    let currentTransferTab = 'mk';
+
+    function switchTransferTab(tab) {
+        currentTransferTab = tab;
+        const tabMkBtn = document.getElementById('tabMkBtn');
+        const tabVacationBtn = document.getElementById('tabVacationBtn');
+        const tabTransferBtn = document.getElementById('tabTransferBtn');
+        const tabAdditionBtn = document.getElementById('tabAdditionBtn');
+
+        const mkFormFields = document.getElementById('mkFormFields');
+        const vacationFormFields = document.getElementById('vacationFormFields');
+        const transferFormFields = document.getElementById('transferFormFields');
+        const transferHistoryList = document.getElementById('transferHistoryList');
+
+        const fromMonthContainer = document.getElementById('fromMonthContainer');
+        const transferModalInfo = document.getElementById('transferModalInfo');
+        const applyTransferBtn = document.getElementById('applyTransferBtn');
+        const descriptionLabel = document.getElementById('descriptionLabel');
+        const transferDescription = document.getElementById('transferDescription');
+
+        const activeTabClass = "py-2 px-3 font-bold text-xs sm:text-sm border-b-2 focus:outline-none transition-colors whitespace-nowrap";
+        const inactiveTabClass = "py-2 px-3 font-medium text-xs sm:text-sm text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 border-b-2 border-transparent focus:outline-none transition-colors whitespace-nowrap";
+
+        if (tab === 'mk') {
+            if (tabMkBtn) tabMkBtn.className = activeTabClass + " border-cyan-600 text-cyan-600 dark:text-cyan-400 dark:border-cyan-400";
+            if (tabVacationBtn) tabVacationBtn.className = inactiveTabClass;
+            if (tabTransferBtn) tabTransferBtn.className = inactiveTabClass;
+            if (tabAdditionBtn) tabAdditionBtn.className = inactiveTabClass;
+
+            if (mkFormFields) mkFormFields.classList.remove('hidden');
+            if (vacationFormFields) vacationFormFields.classList.add('hidden');
+            if (transferFormFields) transferFormFields.classList.add('hidden');
+            if (transferHistoryList) transferHistoryList.classList.add('hidden');
+
+            if (transferModalInfo) {
+                transferModalInfo.className = "p-3 bg-cyan-50 dark:bg-cyan-950/50 border border-cyan-200 dark:border-cyan-800 text-cyan-800 dark:text-cyan-200 rounded-md text-xs";
+                transferModalInfo.innerHTML = '🏥 <strong>Внесение МК:</strong> укажите дату и время интервала (или используйте кнопку Весь день).';
+            }
+            if (applyTransferBtn) {
+                applyTransferBtn.innerText = 'Сохранить МК';
+                applyTransferBtn.className = "h-10 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-md text-sm font-bold transition-colors";
+            }
+        } else if (tab === 'vacation') {
+            if (tabMkBtn) tabMkBtn.className = inactiveTabClass;
+            if (tabVacationBtn) tabVacationBtn.className = activeTabClass + " border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400";
+            if (tabTransferBtn) tabTransferBtn.className = inactiveTabClass;
+            if (tabAdditionBtn) tabAdditionBtn.className = inactiveTabClass;
+
+            if (mkFormFields) mkFormFields.classList.add('hidden');
+            if (vacationFormFields) vacationFormFields.classList.remove('hidden');
+            if (transferFormFields) transferFormFields.classList.add('hidden');
+            if (transferHistoryList) transferHistoryList.classList.add('hidden');
+
+            if (transferModalInfo) {
+                transferModalInfo.className = "p-3 bg-purple-50 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-800 text-purple-800 dark:text-purple-200 rounded-md text-xs";
+                transferModalInfo.innerHTML = '🏖️ <strong>Отпуск:</strong> укажите тип дня и период для массового изменения.';
+            }
+            if (applyTransferBtn) {
+                applyTransferBtn.innerText = 'Применить';
+                applyTransferBtn.className = "h-10 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-sm font-bold transition-colors";
+            }
+        } else if (tab === 'transfer') {
+            if (tabMkBtn) tabMkBtn.className = inactiveTabClass;
+            if (tabVacationBtn) tabVacationBtn.className = inactiveTabClass;
+            if (tabTransferBtn) tabTransferBtn.className = activeTabClass + " border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-400";
+            if (tabAdditionBtn) tabAdditionBtn.className = inactiveTabClass;
+
+            if (mkFormFields) mkFormFields.classList.add('hidden');
+            if (vacationFormFields) vacationFormFields.classList.add('hidden');
+            if (transferFormFields) transferFormFields.classList.remove('hidden');
+            if (transferHistoryList) transferHistoryList.classList.remove('hidden');
+
+            if (fromMonthContainer) fromMonthContainer.style.display = 'block';
+            if (transferModalInfo) {
+                const modalElem = document.getElementById('transferModal');
+                const isNeg = modalElem ? (modalElem.dataset.isPrevNegative === 'true') : false;
+                const prevDisplay = modalElem ? (modalElem.dataset.prevDisplay || '') : '';
+                const prevBalance = modalElem ? (modalElem.dataset.prevBalance || '') : '';
+
+                if (isNeg) {
+                    transferModalInfo.className = "p-3 bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-md text-xs";
+                    transferModalInfo.innerHTML = '⛔ <strong>Перенос заблокирован:</strong> Баланс за прошлый месяц (' + prevDisplay + ') отрицательный (<strong class="negative">' + prevBalance + '</strong>). Перенос времени из месяца с отрицательным балансом заблокирован.';
+                } else {
+                    transferModalInfo.className = "p-3 bg-blue-50 dark:bg-slate-700/60 dark:text-slate-200 rounded-md text-xs";
+                    transferModalInfo.innerHTML = 'Баланс за прошлый месяц (' + prevDisplay + '): <strong class="positive">' + prevBalance + '</strong>';
+                }
+            }
+            if (applyTransferBtn) {
+                applyTransferBtn.innerText = 'Перенести';
+                applyTransferBtn.className = "h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md text-sm font-bold transition-colors";
+            }
+            if (descriptionLabel) descriptionLabel.innerText = 'Описание / Комментарий';
+            if (transferDescription) transferDescription.placeholder = 'Например: Перенос остатка';
+        } else {
+            if (tabMkBtn) tabMkBtn.className = inactiveTabClass;
+            if (tabVacationBtn) tabVacationBtn.className = inactiveTabClass;
+            if (tabTransferBtn) tabTransferBtn.className = inactiveTabClass;
+            if (tabAdditionBtn) tabAdditionBtn.className = activeTabClass + " border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400";
+
+            if (mkFormFields) mkFormFields.classList.add('hidden');
+            if (vacationFormFields) vacationFormFields.classList.add('hidden');
+            if (transferFormFields) transferFormFields.classList.remove('hidden');
+            if (transferHistoryList) transferHistoryList.classList.remove('hidden');
+
+            if (fromMonthContainer) fromMonthContainer.style.display = 'none';
+            if (transferModalInfo) {
+                transferModalInfo.className = "p-3 bg-blue-50 dark:bg-slate-700/60 dark:text-slate-200 rounded-md text-xs";
+                transferModalInfo.innerHTML = '✨ <strong>Добавление времени:</strong> указанное время будет начислено в выбранный месяц напрямую.';
+            }
+            if (applyTransferBtn) {
+                applyTransferBtn.innerText = 'Добавить время';
+                applyTransferBtn.className = "h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-sm font-bold transition-colors";
+            }
+            if (descriptionLabel) descriptionLabel.innerText = 'Описание добавления';
+            if (transferDescription) transferDescription.placeholder = 'Например: Премия за дежурство, бонус, корректировка';
+        }
+    }
+
+    function submitModalAction() {
+        if (currentTransferTab === 'mk') {
+            submitMkSlot();
+        } else if (currentTransferTab === 'vacation') {
+            submitVacationForm();
+        } else {
+            submitTimeTransfer();
+        }
+    }
+
+    function toggleMkMode(mode) {
+        const exitWrapper = document.getElementById('mkExitTimeWrapper');
+        const hoursWrapper = document.getElementById('mkHoursWrapper');
+        if (mode === 'hours') {
+            if (exitWrapper) exitWrapper.classList.add('hidden');
+            if (hoursWrapper) hoursWrapper.classList.remove('hidden');
+            calculateExitFromHours();
+        } else {
+            if (exitWrapper) exitWrapper.classList.remove('hidden');
+            if (hoursWrapper) hoursWrapper.classList.add('hidden');
+        }
+    }
+
+    function setMkFullDay() {
+        const userAccountType = "{{ user.account_type }}";
+        const entryInput = document.getElementById('mkEntryTime');
+        const exitInput = document.getElementById('mkExitTime');
+        const hoursInput = document.getElementById('mkHours');
+
+        if (entryInput) entryInput.value = "08:30";
+
+        let requiredHours = 8;
+        let exitStr = "17:15";
+
+        if (userAccountType === 'shortened') {
+            requiredHours = 7;
+            exitStr = "15:45";
+        } else if (userAccountType === 'student') {
+            requiredHours = 4;
+            exitStr = "12:30";
+        }
+
+        if (exitInput) exitInput.value = exitStr;
+        if (hoursInput) hoursInput.value = requiredHours;
+        showToast(`☀️ Весь день: 08:30 - ${exitStr} (${requiredHours} ч.)`, 'info');
+    }
+
+    function calculateExitFromHours() {
+        const entryStr = document.getElementById('mkEntryTime').value || "08:30";
+        const hoursVal = parseFloat(document.getElementById('mkHours').value) || 0;
+        if (!entryStr.includes(':') || hoursVal <= 0) return;
+
+        const parts = entryStr.split(':');
+        let h = parseInt(parts[0], 10);
+        let m = parseInt(parts[1], 10);
+
+        const totalMinutes = h * 60 + m + Math.round(hoursVal * 60);
+        let exitH = Math.floor(totalMinutes / 60) % 24;
+        let exitM = totalMinutes % 60;
+
+        const exitStr = `${String(exitH).padStart(2, '0')}:${String(exitM).padStart(2, '0')}`;
+        const exitInput = document.getElementById('mkExitTime');
+        if (exitInput) exitInput.value = exitStr;
+    }
+
+    async function submitMkSlot() {
+        const dateVal = document.getElementById('mkDate').value;
+        const entryVal = document.getElementById('mkEntryTime').value;
+        let exitVal = document.getElementById('mkExitTime').value;
+
+        const mkMode = document.querySelector('input[name="mkMode"]:checked')?.value || 'times';
+        if (mkMode === 'hours') {
+            calculateExitFromHours();
+            exitVal = document.getElementById('mkExitTime').value;
+        }
+
+        if (!dateVal || !entryVal || !exitVal) {
+            showToast('Укажите дату, время входа и время выхода', 'error');
+            return;
+        }
+
+        try {
+            const res = await fetch("{% url 'add_mk_slot' %}", {
                 method: 'POST',
-                body: formData,
-                headers: {'X-CSRFToken': getCookie('csrftoken')}
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        statusDiv.innerHTML = `<span style="color: green;">${data.message}</span>`;
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    } else {
-                        statusDiv.innerHTML = `<span style="color: red;">${data.message}</span>`;
-                    }
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    date: dateVal,
+                    entry_time: entryVal,
+                    exit_time: exitVal
                 })
-                .catch(error => {
-                    statusDiv.innerHTML = `<span style="color: red;">Произошла ошибка: ${error}</span>`;
-                });
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                toggleModal('transferModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('❌ ' + data.message, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('❌ Ошибка при сохранении МК', 'error');
+        }
+    }
+
+    function openTransferModal(tab = 'mk', prefilledDate = null) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const dateParam = urlParams.get('date');
+        let selDate = dateParam ? new Date(dateParam + '-01') : new Date();
+
+        const formatMonth = (d) => {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            return `${year}-${month}`;
+        };
+
+        const prevMonthDate = new Date(selDate.getFullYear(), selDate.getMonth() - 1, 1);
+
+        const fromInput = document.getElementById('transferFromMonth');
+        const toInput = document.getElementById('transferToMonth');
+        if (fromInput) fromInput.value = formatMonth(prevMonthDate);
+        if (toInput) toInput.value = formatMonth(selDate);
+
+        const mkDateInput = document.getElementById('mkDate');
+        if (mkDateInput) {
+            if (prefilledDate) {
+                mkDateInput.value = prefilledDate;
+            } else {
+                const today = new Date();
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                mkDateInput.value = `${yyyy}-${mm}-${dd}`;
+            }
+        }
+
+        switchTransferTab(tab);
+        toggleModal('transferModal');
+    }
+
+    async function submitTimeTransfer() {
+        const toMonthVal = document.getElementById('transferToMonth').value;
+        const timeAmount = document.getElementById('transferAmount').value;
+        const description = document.getElementById('transferDescription').value;
+
+        if (!toMonthVal || !timeAmount) {
+            showToast('Заполните обязательные поля времени и месяца', 'error');
+            return;
+        }
+
+        const payload = {
+            type: currentTransferTab,
+            to_year: Number(toMonthVal.split('-')[0]),
+            to_month: Number(toMonthVal.split('-')[1]),
+            time_amount: timeAmount,
+            description: description
+        };
+
+        if (currentTransferTab === 'transfer') {
+            const fromMonthVal = document.getElementById('transferFromMonth').value;
+            if (!fromMonthVal) {
+                showToast('Укажите месяц списания', 'error');
+                return;
+            }
+            payload.from_year = Number(fromMonthVal.split('-')[0]);
+            payload.from_month = Number(fromMonthVal.split('-')[1]);
+        }
+
+        try {
+            const res = await fetch("{% url 'transfer_time' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                toggleModal('transferModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('❌ ' + data.message, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('❌ Ошибка сети', 'error');
+        }
+    }
+
+    async function deleteTimeTransfer(transferId) {
+        if (!confirm('Удалить эту запись переноса/добавления времени?')) return;
+        try {
+            const res = await fetch("{% url 'delete_transfer' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({transfer_id: transferId})
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('❌ ' + data.message, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('❌ Ошибка при удалении', 'error');
+        }
+    }
+
+    async function toggleThemeMode() {
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+        applyTheme(newTheme);
+        localStorage.setItem('theme_mode', newTheme);
+
+        try {
+            await fetch("{% url 'save_theme_settings' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({theme_mode: newTheme})
+            });
+        } catch (e) {
+            console.error('Ошибка сохранения темы:', e);
+        }
+    }
+
+    (function initTheme() {
+        const serverTheme = "{{ theme_mode|default:'light' }}";
+        const localTheme = localStorage.getItem('theme_mode');
+        const initialTheme = localTheme || serverTheme || 'light';
+        applyTheme(initialTheme);
+    })();
+
+    let currentFocusedDayId = null;
+    const dayOriginalStates = {};
+
+    function captureDayOriginalState(dayId) {
+        if (!dayId || dayOriginalStates[dayId]) return;
+
+        const timeCell = document.getElementById(`time-cell-${dayId}`);
+        const dayTypeSelect = document.getElementById(`day-type-${dayId}`);
+        if (!timeCell) return;
+
+        const slots = [];
+        timeCell.querySelectorAll('.time-pair-group').forEach(group => {
+            slots.push({
+                entry: group.querySelector('.entry-input')?.value || '',
+                exit: group.querySelector('.exit-input')?.value || '',
+                entryType: group.dataset.entryType || 'default',
+                isCalculated: group.dataset.isCalculated || 'false',
+                order: group.dataset.order || 0
+            });
         });
+
+        dayOriginalStates[dayId] = {
+            html: timeCell.innerHTML,
+            type: dayTypeSelect ? dayTypeSelect.value : null,
+            slots: slots
+        };
+    }
+
+    function revertActiveDayChanges(dayId) {
+        if (!dayId || !dayOriginalStates[dayId]) return;
+
+        const timeCell = document.getElementById(`time-cell-${dayId}`);
+        const dayTypeSelect = document.getElementById(`day-type-${dayId}`);
+        const display = document.getElementById(`day-type-display-${dayId}`);
+        const state = dayOriginalStates[dayId];
+
+        if (timeCell) {
+            timeCell.innerHTML = state.html;
+            const groups = timeCell.querySelectorAll('.time-pair-group');
+            groups.forEach((group, idx) => {
+                if (state.slots[idx]) {
+                    const entryInp = group.querySelector('.entry-input');
+                    const exitInp = group.querySelector('.exit-input');
+                    if (entryInp) entryInp.value = state.slots[idx].entry;
+                    if (exitInp) exitInp.value = state.slots[idx].exit;
+                    group.dataset.entryType = state.slots[idx].entryType;
+                    group.dataset.isCalculated = state.slots[idx].isCalculated;
+                }
+            });
+        }
+
+        if (dayTypeSelect && state.type !== null) {
+            dayTypeSelect.value = state.type;
+            dayTypeSelect.classList.add('hidden');
+        }
+
+        if (display) {
+            display.classList.remove('hidden');
+        }
+
+        if (timeCell) {
+            timeCell.querySelectorAll('.time-display').forEach(d => d.classList.remove('hidden'));
+            timeCell.querySelectorAll('.time-input').forEach(i => i.classList.add('hidden'));
+            timeCell.querySelectorAll('.btn-remove-pair').forEach(b => b.classList.add('hidden'));
+            timeCell.querySelectorAll('.btn-calculate-exit, .btn-calculate-zero').forEach(b => b.classList.add('hidden'));
+            timeCell.querySelectorAll('.actions-group button').forEach(b => b.classList.add('hidden'));
+        }
+
+        delete dayOriginalStates[dayId];
+    }
+
+    function showHotkeysHintBar() {
+        const hintBar = document.getElementById('hotkeysHintBar');
+        if (!hintBar) return;
+        hintBar.classList.remove('hidden');
+        requestAnimationFrame(() => {
+            hintBar.classList.remove('opacity-0', 'scale-95');
+            hintBar.classList.add('opacity-100', 'scale-100');
+        });
+    }
+
+    function hideHotkeysHintBar() {
+        const hintBar = document.getElementById('hotkeysHintBar');
+        if (!hintBar) return;
+        hintBar.classList.remove('opacity-100', 'scale-100');
+        hintBar.classList.add('opacity-0', 'scale-95');
+        setTimeout(() => {
+            if (!currentFocusedDayId) {
+                hintBar.classList.add('hidden');
+            }
+        }, 200);
+    }
+
+    function focusFirstEntryInput(dayId) {
+        const timeCell = document.getElementById(`time-cell-${dayId}`);
+        if (!timeCell) return;
+
+        let firstEntryInput = timeCell.querySelector('.time-pair-group .entry-input');
+        if (!firstEntryInput) {
+            addNewTimeSlotToDay(dayId);
+            firstEntryInput = timeCell.querySelector('.time-pair-group .entry-input');
+        }
+
+        if (firstEntryInput) {
+            setTimeout(() => {
+                firstEntryInput.focus();
+                if (firstEntryInput.value) {
+                    firstEntryInput.select();
+                }
+            }, 50);
+        }
+    }
+
+    function setActiveFocusedDay(dayId, initialTarget = null) {
+        if (!dayId) return;
+
+        if (currentFocusedDayId && currentFocusedDayId !== dayId) {
+            cancelEditingActiveDay(currentFocusedDayId);
+        }
+
+        captureDayOriginalState(dayId);
+
+        currentFocusedDayId = dayId;
+        activateEditing(dayId);
+
+        const currentCell = document.getElementById(`time-cell-${dayId}`);
+        if (currentCell) {
+            currentCell.classList.add('ring-2', 'ring-blue-500', 'ring-offset-1', 'bg-blue-50/30', 'dark:bg-slate-700/40');
+        }
+
+        showFloatingControlBar(dayId);
+        showHotkeysHintBar();
+
+        if (!initialTarget || (!initialTarget.classList.contains('time-input') && !initialTarget.classList.contains('day-type-select'))) {
+            focusFirstEntryInput(dayId);
+        }
+    }
+
+    function showFloatingControlBar(dayId) {
+        const bar = document.getElementById('floatingControlBar');
+        const label = document.getElementById('floatingDayLabel');
+        if (!bar || !dayId) return;
+
+        const timeCell = document.getElementById(`time-cell-${dayId}`);
+        if (!timeCell) return;
+
+        const dayTypeDisplay = document.getElementById(`day-type-display-${dayId}`);
+        let dateStr = "";
+        if (dayTypeDisplay) {
+            const td = dayTypeDisplay.closest('td');
+            if (td) {
+                const cellIndex = td.cellIndex;
+                const th = td.closest('table')?.querySelector(`thead tr th:nth-child(${cellIndex + 1})`);
+                if (th) dateStr = th.innerText.replace(/\s+/g, ' ').trim();
+            }
+        }
+        if (label) label.innerText = dateStr || `День #${dayId}`;
+
+        bar.classList.remove('hidden');
+        bar.classList.add('flex');
+
+        const rect = timeCell.getBoundingClientRect();
+        const scrollX = window.scrollX || window.pageXOffset;
+        const scrollY = window.scrollY || window.pageYOffset;
+
+        const barWidth = bar.offsetWidth || 260;
+
+        let left = rect.left + scrollX + (rect.width / 2) - (barWidth / 2);
+        let top = rect.bottom + scrollY + 6;
+
+        const minLeft = 10 + scrollX;
+        const maxLeft = window.innerWidth + scrollX - barWidth - 10;
+        if (left < minLeft) left = minLeft;
+        if (left > maxLeft) left = maxLeft;
+
+        bar.style.top = `${top}px`;
+        bar.style.left = `${left}px`;
+    }
+
+    function saveActiveDay() {
+        if (!currentFocusedDayId) {
+            showToast('Выберите день для сохранения', 'error');
+            return;
+        }
+        saveIndividualDay(currentFocusedDayId);
+    }
+
+    function addTimeSlotToActiveDay() {
+        if (!currentFocusedDayId) {
+            showToast('Выберите день для добавления слота', 'error');
+            return;
+        }
+        addNewTimeSlotToDay(currentFocusedDayId);
+    }
+
+    function deleteActiveDaySlots() {
+        if (!currentFocusedDayId) {
+            showToast('Выберите день для удаления', 'error');
+            return;
+        }
+        const timeCell = document.getElementById(`time-cell-${currentFocusedDayId}`);
+        if (!timeCell) return;
+
+        const groups = timeCell.querySelectorAll(`.time-pair-group[data-day-id="${currentFocusedDayId}"]`);
+        if (groups.length === 0) {
+            showToast('В этом дне нет слотов для удаления', 'info');
+            return;
+        }
+
+        groups.forEach(g => g.remove());
+        updateCalculationButtonsVisibility(currentFocusedDayId);
+        showToast('❌ Слоты дня удалены. Нажмите Enter (Сохранить) для подтверждения.', 'info');
+    }
+
+    function exitActiveDay() {
+        if (currentFocusedDayId) {
+            const currentCell = document.getElementById(`time-cell-${currentFocusedDayId}`);
+            if (currentCell) {
+                currentCell.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-1', 'bg-blue-50/30', 'dark:bg-slate-700/40');
+            }
+        }
+        currentFocusedDayId = null;
+        const bar = document.getElementById('floatingControlBar');
+        if (bar) bar.classList.add('hidden');
+        hideHotkeysHintBar();
+    }
+
+    function cancelEditingActiveDay(dayId = null) {
+        const targetDayId = dayId || currentFocusedDayId;
+        if (targetDayId) {
+            revertActiveDayChanges(targetDayId);
+        }
+        exitActiveDay();
+    }
+
+    window.addEventListener('resize', () => {
+        if (currentFocusedDayId) showFloatingControlBar(currentFocusedDayId);
+    });
+    window.addEventListener('scroll', () => {
+        if (currentFocusedDayId) showFloatingControlBar(currentFocusedDayId);
+    });
+
+    // Обработка горячих клавиш: Enter (Save), Esc (Exit), Space (Add time-slot), T (Calculate / Shift+T Zero)
+    document.addEventListener('keydown', (e) => {
+        const openModal = document.querySelector('.fixed.inset-0:not(.hidden)');
+        if (openModal) {
+            if (e.key === 'Escape') {
+                openModal.classList.add('hidden');
+                openModal.classList.remove('flex');
+            }
+            return;
+        }
+
+        if (e.key === 'Enter') {
+            if (currentFocusedDayId) {
+                e.preventDefault();
+                saveActiveDay();
+            }
+        } else if (e.key === 'Escape' || e.key === '/') {
+            if (currentFocusedDayId) {
+                e.preventDefault();
+                cancelEditingActiveDay();
+            }
+        } else if (e.code === 'Space' || e.key === '+') {
+            const activeElem = document.activeElement;
+            const isStandardTextInputs = activeElem && (
+                (activeElem.tagName === 'INPUT' && !activeElem.classList.contains('time-input')) ||
+                activeElem.tagName === 'TEXTAREA' ||
+                activeElem.isContentEditable
+            );
+
+            if (!isStandardTextInputs && currentFocusedDayId) {
+                e.preventDefault();
+                addTimeSlotToActiveDay();
+            }
+        } else if (e.key.toLowerCase() === 't' || e.key.toLowerCase() === 'е' || e.code === 'KeyT') {
+            const activeElem = document.activeElement;
+            const isStandardTextInputs = activeElem && (
+                (activeElem.tagName === 'INPUT' && !activeElem.classList.contains('time-input')) ||
+                activeElem.tagName === 'TEXTAREA' ||
+                activeElem.isContentEditable
+            );
+
+            if (!isStandardTextInputs && currentFocusedDayId) {
+                e.preventDefault();
+                performExitTimeCalculation(currentFocusedDayId, e.shiftKey);
+            }
+        }
+    });
+
+    // Отслеживание фокуса и кликов по ячейкам таблицы
+    document.addEventListener('focusin', (e) => {
+        const dayGroup = e.target.closest('[data-day-id]');
+        if (dayGroup && dayGroup.dataset.dayId) {
+            setActiveFocusedDay(dayGroup.dataset.dayId, e.target);
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-remove-pair') || e.target.closest('.btn-calculate-exit') || e.target.closest('.btn-calculate-zero') || e.target.closest('#floatingControlBar')) {
+            return;
+        }
+
+        const dayTypeDisplay = e.target.closest('.day-type-display');
+        const timeDisplay = e.target.closest('.time-display');
+        const timeCell = e.target.closest('.time-cell');
+        const dayCell = e.target.closest('.day-cell');
+
+        let dayId = null;
+        if (dayTypeDisplay) {
+            dayId = dayTypeDisplay.id.replace('day-type-display-', '');
+        } else if (timeDisplay) {
+            const group = timeDisplay.closest('.time-pair-group');
+            if (group) dayId = group.dataset.dayId;
+        } else if (timeCell && timeCell.dataset.dayId) {
+            dayId = timeCell.dataset.dayId;
+        } else if (dayCell && dayCell.dataset.dayId) {
+            dayId = dayCell.dataset.dayId;
+        }
+
+        if (dayId) {
+            setActiveFocusedDay(dayId, e.target);
+        }
+    });
+
+    function activateEditing(dayId) {
+        if (!dayId) return;
+        // Показать селект типа
+        const display = document.getElementById(`day-type-display-${dayId}`);
+        const select = document.getElementById(`day-type-${dayId}`);
+        if (display) display.classList.add('hidden');
+        if (select) select.classList.remove('hidden');
+
+        // Показать скрытые кнопки в ячейке "Действия"
+        const actionButtons = document.querySelectorAll(`#actions-${dayId} button`);
+        actionButtons.forEach(btn => btn.classList.remove('hidden'));
+
+        // Активировать инпуты во всех группах времени этого дня
+        const groups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+        groups.forEach(group => {
+            group.querySelectorAll('.time-display').forEach(d => d.classList.add('hidden'));
+            group.querySelectorAll('.time-input').forEach(i => i.classList.remove('hidden'));
+            group.querySelectorAll('.btn-remove-pair').forEach(b => b.classList.remove('hidden'));
+        });
+
+        sortTimePairs(dayId);
+    }
+
+    function addNewTimeSlotToDay(dayId) {
+        activateEditing(dayId);
+
+        let timeCell = document.getElementById(`time-cell-${dayId}`);
+        if (!timeCell) {
+            const firstGroup = document.querySelector(`.time-pair-group[data-day-id="${dayId}"]`);
+            if (firstGroup) timeCell = firstGroup.parentElement;
+        }
+        if (!timeCell) return;
+
+        const newOrder = timeCell.querySelectorAll('.time-pair-group').length;
+        const div = document.createElement('div');
+        div.className = `time-pair-group mb-2 p-1`;
+        div.dataset.dayId = dayId;
+        div.dataset.order = newOrder;
+        div.dataset.entryType = 'default';
+        div.dataset.isCalculated = 'false';
+
+        div.innerHTML = `
+            <div class="flex flex-col gap-1.5 items-center w-full">
+                <div class="flex justify-center items-center gap-1 font-mono text-sm text-center w-full">
+                    <input type="text" placeholder="HH:MM" maxlength="5" pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$" class="time-input entry-input w-[64px] border rounded text-center font-mono text-sm p-1 bg-white" value="">
+                    <span class="px-0.5 text-gray-400 font-normal">|</span>
+                    <input type="text" placeholder="HH:MM" maxlength="5" pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$" class="time-input exit-input w-[64px] border rounded text-center font-mono text-sm p-1 bg-white" value="">
+                    <button type="button" class="btn-remove-pair text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors" title="Удалить слот"><span class="material-icons text-base">delete</span></button>
+                </div>
+                <div class="flex items-center gap-1 w-full mt-1">
+                    <button type="button" class="btn-calculate-exit hidden flex-1 py-1 text-[11px] font-bold bg-green-600 hover:bg-green-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors" title="Расчёт нормы времени (Горячая клавиша: T)"><span class="material-icons text-xs">calculate</span><span>Расчёт</span></button>
+                    <button type="button" class="btn-calculate-zero hidden flex-1 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors" title="Расчёт выхода с учётом имеющегося минуса/баланса (Shift+T)"><span class="material-icons text-xs">balance</span><span>UBERрасчёт</span></button>
+                </div>
+            </div>
+        `;
+
+        const actionsGroup = timeCell.querySelector('.actions-group');
+        if (actionsGroup) {
+            timeCell.insertBefore(div, actionsGroup);
+        } else {
+            timeCell.appendChild(div);
+        }
+        sortTimePairs(dayId);
+
+        const entryInput = div.querySelector('.entry-input');
+        if (entryInput) entryInput.focus();
+    }
+
+    async function saveIndividualDay(dayId) {
+        if (!dayId) return;
+        sortTimePairs(dayId);
+        const dayTypeSelect = document.getElementById(`day-type-${dayId}`);
+        const timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+
+        const timeEntries = [];
+
+        timePairGroups.forEach((group, index) => {
+            const entryVal = group.querySelector('.entry-input')?.value || '';
+            const exitVal = group.querySelector('.exit-input')?.value || '';
+            const entryType = group.dataset.entryType || 'default';
+            const isCalculated = group.dataset.isCalculated === 'true';
+
+            if (entryVal) {
+                timeEntries.push({
+                    type: 'EG',
+                    time: entryVal,
+                    order: index,
+                    entry_type: entryType
+                });
+            }
+            if (exitVal) {
+                timeEntries.push({
+                    type: 'OG',
+                    time: exitVal,
+                    order: index,
+                    entry_type: entryType,
+                    is_calculated: isCalculated
+                });
+            }
+        });
+
+        const payload = {
+            dayId: dayId,
+            day_type: dayTypeSelect ? dayTypeSelect.value : 'ND',
+            time_entries: timeEntries
+        };
+
+        try {
+            const response = await fetch("{% url 'update_work_times' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showToast('✅ Сохранено');
+                location.reload();
+            } else {
+                showToast('❌ Ошибка: ' + data.message, 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('❌ Ошибка сети', 'error');
+        }
+    }
+
+    // 3. ОБРАБОТКА ИНДИВИДУАЛЬНОГО СОХРАНЕНИЯ (Кнопка с дискетой)
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-save'); // Ищем кнопку или иконку внутри неё
+        if (!btn) return;
+
+        const dayId = btn.dataset.dayId;
+        sortTimePairs(dayId);
+        const dayTypeSelect = document.getElementById(`day-type-${dayId}`);
+        const timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+
+        const timeEntries = [];
+
+        timePairGroups.forEach((group, index) => {
+            const entryVal = group.querySelector('.entry-input').value;
+            const exitVal = group.querySelector('.exit-input').value;
+            const entryType = group.dataset.entryType || 'default';
+            const isCalculated = group.dataset.isCalculated === 'true';
+
+            if (entryVal) {
+                timeEntries.push({
+                    type: 'EG',
+                    time: entryVal,
+                    order: index,
+                    entry_type: entryType
+                });
+            }
+            if (exitVal) {
+                timeEntries.push({
+                    type: 'OG',
+                    time: exitVal,
+                    order: index,
+                    entry_type: entryType,
+                    is_calculated: isCalculated
+                });
+            }
+        });
+
+        const payload = {
+            dayId: dayId,
+            day_type: dayTypeSelect ? dayTypeSelect.value : 'ND',
+            time_entries: timeEntries
+        };
+
+        try {
+            const response = await fetch("{% url 'update_work_times' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (data.success) {
+                showToast('✅ Сохранено');
+                // Вместо полной перезагрузки можно обновить только значения баланса в строке, 
+                // но для надежности логики лучше перезагрузить или вызвать функцию обновления
+                location.reload();
+            } else {
+                showToast('❌ Ошибка: ' + data.message, 'error');
+            }
+        } catch (err) {
+            console.error(err);
+            showToast('❌ Ошибка сети', 'error');
+        }
+    });
+
+    // 4. КНОПКА "ОТМЕНА" (Крестик в нижнем ряду)
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-cancel');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dayId = btn.dataset.dayId || currentFocusedDayId;
+            if (dayId) {
+                cancelEditingActiveDay(dayId);
+            }
+        }
+    });
+
+    // 5. ДОБАВЛЕНИЕ НОВОГО СЛОТА ВРЕМЕНИ
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-add-time, .btn-add-mk');
+        if (!btn) return;
+
+        const dayId = btn.dataset.dayId;
+        const isMk = btn.classList.contains('btn-add-mk');
+
+        activateEditing(dayId);
+
+        let timeCell = document.getElementById(`time-cell-${dayId}`);
+        if (!timeCell) {
+            const firstGroup = document.querySelector(`.time-pair-group[data-day-id="${dayId}"]`);
+            if (firstGroup) timeCell = firstGroup.parentElement;
+        }
+        if (!timeCell) return;
+
+        const newOrder = timeCell.querySelectorAll('.time-pair-group').length;
+        const div = document.createElement('div');
+        div.className = `time-pair-group mb-2 p-1 ${isMk ? 'mk-highlight' : ''}`;
+        div.dataset.dayId = dayId;
+        div.dataset.order = newOrder;
+        div.dataset.entryType = isMk ? 'mk' : 'default';
+        div.dataset.isCalculated = 'false';
+
+        div.innerHTML = `
+            <div class="flex flex-col gap-1.5 items-center w-full">
+                <div class="flex justify-center items-center gap-1 font-mono text-sm text-center w-full">
+                    <input type="text" placeholder="HH:MM" maxlength="5" pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$" class="time-input entry-input w-[64px] border rounded text-center font-mono text-sm p-1 bg-white" value="">
+                    <span class="px-0.5 text-gray-400 font-normal">|</span>
+                    <input type="text" placeholder="HH:MM" maxlength="5" pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$" class="time-input exit-input w-[64px] border rounded text-center font-mono text-sm p-1 bg-white" value="">
+                    <button type="button" class="btn-remove-pair text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors" title="Удалить слот"><span class="material-icons text-base">delete</span></button>
+                </div>
+                <div class="flex items-center gap-1 w-full mt-1">
+                    <button type="button" class="btn-calculate-exit hidden flex-1 py-1 text-[11px] font-bold bg-green-600 hover:bg-green-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors" title="Расчёт нормы времени (Горячая клавиша: T)"><span class="material-icons text-xs">calculate</span><span>Расчёт</span></button>
+                    <button type="button" class="btn-calculate-zero hidden flex-1 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded shadow-sm flex items-center justify-center gap-0.5 transition-colors" title="Расчёт выхода с учётом имеющегося минуса/баланса (Shift+T)"><span class="material-icons text-xs">balance</span><span>С учётом минуса</span></button>
+                </div>
+            </div>
+        `;
+        const actionsGroup = timeCell.querySelector('.actions-group');
+        if (actionsGroup) {
+            timeCell.insertBefore(div, actionsGroup);
+        } else {
+            timeCell.appendChild(div);
+        }
+        sortTimePairs(dayId);
+
+        const entryInput = div.querySelector('.entry-input');
+        if (entryInput) entryInput.focus();
+    });
+
+    // Функция сортировки слотов по времени по возрастанию (с учетом времени выхода при отсутствии входа)
+    function sortTimePairs(dayId) {
+        if (!dayId) return;
+        let timeCell = document.getElementById(`time-cell-${dayId}`);
+        if (!timeCell) {
+            const firstGroup = document.querySelector(`.time-pair-group[data-day-id="${dayId}"]`);
+            if (firstGroup) timeCell = firstGroup.parentElement;
+        }
+        if (!timeCell) return;
+        const groups = Array.from(timeCell.querySelectorAll(`.time-pair-group`));
+
+        if (groups.length === 0) {
+            updateCalculationButtonsVisibility(dayId);
+            return;
+        }
+
+        const sorted = [...groups].sort((a, b) => {
+            const entryA = a.querySelector('.entry-input')?.value.trim() || '';
+            const exitA = a.querySelector('.exit-input')?.value.trim() || '';
+            const timeA = entryA || exitA || '99:99';
+
+            const entryB = b.querySelector('.entry-input')?.value.trim() || '';
+            const exitB = b.querySelector('.exit-input')?.value.trim() || '';
+            const timeB = entryB || exitB || '99:99';
+
+            return timeA.localeCompare(timeB);
+        });
+
+        let orderChanged = false;
+        for (let i = 0; i < groups.length; i++) {
+            if (groups[i] !== sorted[i]) {
+                orderChanged = true;
+                break;
+            }
+        }
+
+        if (orderChanged) {
+            const actionsGroup = timeCell.querySelector('.actions-group');
+            sorted.forEach((group, index) => {
+                if (actionsGroup) {
+                    timeCell.insertBefore(group, actionsGroup);
+                } else {
+                    timeCell.appendChild(group);
+                }
+                group.dataset.order = index;
+            });
+        } else {
+            sorted.forEach((group, index) => {
+                group.dataset.order = index;
+            });
+        }
+
+        updateCalculationButtonsVisibility(dayId);
+    }
+
+    // Авто-сортировка при изменении времени (входа или выхода)
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('time-input')) {
+            const group = e.target.closest('.time-pair-group');
+            if (group && group.dataset.dayId) {
+                sortTimePairs(group.dataset.dayId);
+            }
+        }
+    });
+
+    // Маска 24-часового формата времени
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('time-input')) {
+            let originalVal = e.target.value;
+
+            // Если есть разделитель, форматируем отдельно часы и минуты с автоподстановкой нуля
+            let parts = originalVal.split(/[:., ]/);
+            if (parts.length > 1) {
+                let hour = parts[0].replace(/[^0-9]/g, '');
+                let minute = parts[1].replace(/[^0-9]/g, '');
+                if (hour.length === 1) {
+                    hour = '0' + hour;
+                }
+                let newVal = hour.slice(0, 2) + ':';
+                if (minute.length > 0) {
+                    newVal += minute.slice(0, 2);
+                }
+                e.target.value = newVal.slice(0, 5);
+            } else {
+                // Если разделителя нет, работаем с цифрами
+                let val = originalVal.replace(/[^0-9]/g, '');
+                if (val.length === 1 && /^[3-9]$/.test(val)) {
+                    // Если первая цифра от 3 до 9, сразу превращаем в "09:"
+                    e.target.value = '0' + val + ':';
+                } else {
+                    if (val.length >= 3) {
+                        val = val.slice(0, 2) + ':' + val.slice(2, 4);
+                    }
+                    e.target.value = val.slice(0, 5);
+                }
+            }
+
+            const group = e.target.closest('.time-pair-group');
+            if (group) {
+                if (e.target.classList.contains('exit-input')) {
+                    group.classList.remove('calculated-time-highlight');
+                    group.dataset.isCalculated = 'false';
+                } else if (e.target.classList.contains('entry-input') && e.target.value.length === 5 && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(e.target.value)) {
+                    const exitInp = group.querySelector('.exit-input');
+                    if (exitInp) {
+                        setTimeout(() => {
+                            exitInp.focus();
+                            if (exitInp.value) exitInp.select();
+                        }, 20);
+                    }
+                }
+                updateCalculationButtonsVisibility(group.dataset.dayId);
+            }
+        }
+    });
+
+    // 6. УДАЛЕНИЕ СЛОТА
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('.btn-remove-pair');
+        if (btn) {
+            e.preventDefault();
+            e.stopPropagation();
+            const group = btn.closest('.time-pair-group');
+            if (group) {
+                const dayId = group.dataset.dayId;
+                group.remove();
+                if (dayId) {
+                    sortTimePairs(dayId);
+                    updateCalculationButtonsVisibility(dayId);
+                }
+            }
+        }
+    });
+
+    function updateCalculationButtonsVisibility(dayId) {
+        if (!dayId) return;
+        const groups = Array.from(document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`));
+        if (groups.length === 0) return;
+
+        groups.forEach((group, index) => {
+            const calcBtn = group.querySelector('.btn-calculate-exit');
+            const zeroBtn = group.querySelector('.btn-calculate-zero');
+
+            const isLastGroup = (index === groups.length - 1);
+            const entryInput = group.querySelector('.entry-input');
+            const exitInput = group.querySelector('.exit-input');
+            const hasEntryTime = entryInput && entryInput.value.trim() !== '';
+            const hasExitTime = exitInput && exitInput.value.trim() !== '';
+
+            if (isLastGroup && hasEntryTime && !hasExitTime) {
+                if (calcBtn) calcBtn.classList.remove('hidden');
+                if (zeroBtn) zeroBtn.classList.remove('hidden');
+            } else {
+                if (calcBtn) calcBtn.classList.add('hidden');
+                if (zeroBtn) zeroBtn.classList.add('hidden');
+            }
+        });
+    }
+
+    async function performExitTimeCalculation(dayId, targetZero = false) {
+        if (!dayId) return;
+        const groups = Array.from(document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`));
+        if (groups.length === 0) return;
+
+        const lastGroup = groups[groups.length - 1];
+        if (!lastGroup) return;
+
+        const entryInput = lastGroup.querySelector('.entry-input');
+        if (!entryInput || !entryInput.value.trim()) {
+            showToast('Сначала введите время входа', 'error');
+            return;
+        }
+
+        const timePairs = [];
+        groups.forEach(g => {
+            const entry = g.querySelector('.entry-input')?.value || '';
+            const exit = g.querySelector('.exit-input')?.value || '';
+            if (entry || exit) {
+                timePairs.push({
+                    order: g.dataset.order,
+                    entry_time: entry,
+                    exit_time: exit
+                });
+            }
+        });
+
+        try {
+            const res = await fetch("{% url 'calculate_exit_time' %}", {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+                body: JSON.stringify({
+                    day_id: dayId,
+                    time_pairs: timePairs,
+                    target_zero: targetZero
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                const exitInp = lastGroup.querySelector('.exit-input');
+                if (exitInp) {
+                    exitInp.value = data.required_exit_time;
+                }
+                lastGroup.classList.add('calculated-time-highlight');
+                lastGroup.dataset.isCalculated = 'true';
+                updateCalculationButtonsVisibility(dayId);
+                const msg = targetZero ? `✅ Время выхода с учётом минуса рассчитано (${data.required_exit_time})` : `✅ Время выхода рассчитано (${data.required_exit_time})`;
+                showToast(msg);
+            } else {
+                showToast('❌ ' + data.message, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('❌ Ошибка сервера при расчете', 'error');
+        }
+    }
+
+    // ЛОГИКА СОХРАНЕНИЯ ВСЕГО (saveAllChanges)
+    const saveAllBtn = document.getElementById('save-all-btn');
+    if (saveAllBtn) {
+        saveAllBtn.addEventListener('click', async () => {
+            const allData = [];
+            const days = new Set();
+            document.querySelectorAll('.day-type-select').forEach(s => days.add(s.dataset.dayId));
+
+            days.forEach(dayId => {
+                sortTimePairs(dayId);
+                const time_pairs = [];
+                document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`).forEach((group, index) => {
+                    const entry = group.querySelector('.entry-input')?.value || '';
+                    const exit = group.querySelector('.exit-input')?.value || '';
+                    if (entry || exit) {
+                        time_pairs.push({
+                            order: group.dataset.order,
+                            entry_time: entry,
+                            exit_time: exit,
+                            entry_type: group.dataset.entryType,
+                            is_calculated: group.dataset.isCalculated === 'true'
+                        });
+                    }
+                });
+                const dayTypeElem = document.getElementById(`day-type-${dayId}`);
+                if (dayTypeElem) {
+                    allData.push({
+                        day_id: dayId,
+                        day_type: dayTypeElem.value,
+                        time_pairs: time_pairs
+                    });
+                }
+            });
+
+            try {
+                const res = await fetch("{% url 'save_all_changes' %}", {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN},
+                    body: JSON.stringify({data: allData})
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    showToast('✅ Данные сохранены');
+                    location.reload();
+                }
+            } catch (e) {
+                showToast('❌ Ошибка сохранения', 'error');
+            }
+        });
+    }
+
+    // Расчет времени выхода
+    document.addEventListener('click', (e) => {
+        const calcBtn = e.target.closest('.btn-calculate-exit');
+        const zeroBtn = e.target.closest('.btn-calculate-zero');
+        if (calcBtn) {
+            const group = calcBtn.closest('.time-pair-group');
+            if (group && group.dataset.dayId) {
+                performExitTimeCalculation(group.dataset.dayId, false);
+            }
+        } else if (zeroBtn) {
+            const group = zeroBtn.closest('.time-pair-group');
+            if (group && group.dataset.dayId) {
+                performExitTimeCalculation(group.dataset.dayId, true);
+            }
+        }
+    });
+
+    // Экспорт / Загрузка tsv
+    const importBtn = document.getElementById('importApply');
+    if (importBtn) {
+        importBtn.onclick = async () => {
+            const fileInput = document.getElementById('customFileInput');
+            const file = fileInput ? fileInput.files[0] : null;
+            const statusDiv = document.getElementById('import-status-modal');
+
+            if (!file) {
+                if (statusDiv) {
+                    statusDiv.className = "text-sm mb-4 text-red-600 font-semibold";
+                    statusDiv.innerText = "⚠️ Пожалуйста, выберите файл .tsv";
+                } else {
+                    showToast('Выберите файл .tsv', 'error');
+                }
+                return;
+            }
+
+            // Индикация загрузки
+            importBtn.disabled = true;
+            importBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            importBtn.innerHTML = '<span class="inline-block animate-spin">⏳</span><span>Загружаю...</span>';
+
+            if (statusDiv) {
+                statusDiv.className = "text-sm mb-4 text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-2";
+                statusDiv.innerHTML = '<span class="inline-block animate-spin">⏳</span> Загружаю данные, пожалуйста подождите...';
+            }
+
+            try {
+                const fd = new FormData();
+                fd.append('file', file);
+                const res = await fetch("{% url 'import_data' %}", {
+                    method: 'POST',
+                    body: fd,
+                    headers: {'X-CSRFToken': CSRF_TOKEN}
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (statusDiv) {
+                        statusDiv.className = "text-sm mb-4 text-green-600 font-semibold";
+                        statusDiv.innerText = "✅ Загрузка завершена успешно!";
+                    }
+                    showToast('Данные успешно загружены');
+                    location.reload();
+                } else {
+                    if (statusDiv) {
+                        statusDiv.className = "text-sm mb-4 text-red-600 font-semibold";
+                        statusDiv.innerText = "❌ Ошибка: " + (data.message || 'Сбой загрузки');
+                    }
+                    showToast('Ошибка загрузки', 'error');
+                    importBtn.disabled = false;
+                    importBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                    importBtn.innerHTML = '<span>Загрузить</span>';
+                }
+            } catch (err) {
+                if (statusDiv) {
+                    statusDiv.className = "text-sm mb-4 text-red-600 font-semibold";
+                    statusDiv.innerText = "❌ Ошибка сети при загрузке";
+                }
+                showToast('Ошибка сети', 'error');
+                importBtn.disabled = false;
+                importBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+                importBtn.innerHTML = '<span>Загрузить</span>';
+            }
+        };
+    }
+
+    // Маска даты ДД.ММ
+    document.addEventListener('input', (e) => {
+        if (e.target.classList.contains('date-ddmm-input')) {
+            let originalVal = e.target.value;
+            let parts = originalVal.split(/[\.,\/ ]/);
+            if (parts.length > 1) {
+                let day = parts[0].replace(/[^0-9]/g, '');
+                let month = parts[1].replace(/[^0-9]/g, '');
+                if (day.length === 1 && parseInt(day, 10) > 0) day = '0' + day;
+                let newVal = day.slice(0, 2) + '.';
+                if (month.length > 0) newVal += month.slice(0, 2);
+                e.target.value = newVal.slice(0, 5);
+                return;
+            }
+            let val = originalVal.replace(/[^0-9]/g, '');
+            if (val.length === 1 && /^[4-9]$/.test(val)) {
+                e.target.value = '0' + val + '.';
+                return;
+            }
+            if (val.length >= 3) {
+                val = val.slice(0, 2) + '.' + val.slice(2, 4);
+            }
+            e.target.value = val.slice(0, 5);
+        }
+    });
+
+    // Массовое изменение (Отпуск / Выходные / Командировки)
+    const vacStartInput = document.getElementById('vacStart');
+    const vacEndInput = document.getElementById('vacEnd');
+    const vacDaysInput = document.getElementById('vacDays');
+
+    function parseDDMM(str) {
+        if (!str) return null;
+        let parts = str.split('.');
+        if (parts.length < 2) return null;
+        let day = parseInt(parts[0], 10);
+        let month = parseInt(parts[1], 10);
+        if (isNaN(day) || isNaN(month) || month < 1 || month > 12 || day < 1 || day > 31) return null;
+        const currentYear = new Date().getFullYear();
+        let d = new Date(currentYear, month - 1, day);
+        if (d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+        return d;
+    }
+
+    function formatDDMM(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        return `${day}.${month}`;
+    }
+
+    function formatISO(d) {
+        if (!d || isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function syncVacationDates(changedSource) {
+        const startDate = parseDDMM(vacStartInput.value);
+        if (!startDate) return;
+
+        if (changedSource === 'start' || changedSource === 'days') {
+            const daysCount = parseInt(vacDaysInput.value, 10) || 1;
+            const endDate = new Date(startDate);
+            endDate.setDate(endDate.getDate() + (daysCount - 1));
+            vacEndInput.value = formatDDMM(endDate);
+        } else if (changedSource === 'end') {
+            const endDate = parseDDMM(vacEndInput.value);
+            if (!endDate) return;
+            if (endDate >= startDate) {
+                const diffTime = endDate.getTime() - startDate.getTime();
+                const diffDays = Math.round(diffTime / (1000 * 3600 * 24)) + 1;
+                vacDaysInput.value = diffDays;
+            } else {
+                vacDaysInput.value = 1;
+            }
+        }
+    }
+
+    if (vacStartInput) {
+        vacStartInput.addEventListener('change', () => syncVacationDates('start'));
+        vacStartInput.addEventListener('input', () => syncVacationDates('start'));
+    }
+    if (vacDaysInput) {
+        vacDaysInput.addEventListener('input', () => syncVacationDates('days'));
+    }
+    if (vacEndInput) {
+        vacEndInput.addEventListener('change', () => syncVacationDates('end'));
+        vacEndInput.addEventListener('input', () => syncVacationDates('end'));
+    }
+
+    async function submitVacationForm() {
+        const vacTypeInput = document.getElementById('vacType');
+        const dayType = vacTypeInput ? vacTypeInput.value : 'VL';
+        const startDateObj = parseDDMM(vacStartInput ? vacStartInput.value : '');
+
+        if (!startDateObj) {
+            showToast('Введите корректную дату начала (ДД.ММ)', 'error');
+            return;
+        }
+
+        let endDateObj = parseDDMM(vacEndInput ? vacEndInput.value : '');
+
+        if (!endDateObj) {
+            const daysCount = parseInt(vacDaysInput ? vacDaysInput.value : 1, 10) || 1;
+            endDateObj = new Date(startDateObj);
+            endDateObj.setDate(endDateObj.getDate() + (daysCount - 1));
+            if (vacEndInput) vacEndInput.value = formatDDMM(endDateObj);
+        }
+
+        if (startDateObj > endDateObj) {
+            showToast('Дата начала не может быть позже даты окончания', 'error');
+            return;
+        }
+
+        const startDateStr = formatISO(startDateObj);
+        const endDateStr = formatISO(endDateObj);
+
+        try {
+            const res = await fetch("{% url 'set_vacation' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({
+                    start_date: startDateStr,
+                    end_date: endDateStr,
+                    day_type: dayType
+                })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+                showToast('✅ ' + data.message);
+                toggleModal('transferModal');
+                setTimeout(() => location.reload(), 800);
+            } else {
+                showToast('❌ Ошибка: ' + data.message, 'error');
+            }
+        } catch (e) {
+            console.error(e);
+            showToast('❌ Ошибка сети', 'error');
+        }
+    }
+
+    // Месяцы
+    const baseUrl = window.location.pathname;
+    const prevMonthBtn = document.getElementById('prev-month');
+    if (prevMonthBtn) prevMonthBtn.onclick = () => navigateMonth(-1);
+    const nextMonthBtn = document.getElementById('next-month');
+    if (nextMonthBtn) nextMonthBtn.onclick = () => navigateMonth(1);
+
+    function navigateMonth(dir) {
+        const urlParams = new URLSearchParams(window.location.search);
+        let d = urlParams.get('date') ? new Date(urlParams.get('date') + '-01') : new Date();
+        d.setMonth(d.getMonth() + dir);
+        window.location.href = baseUrl + '?date=' + d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
+    function applyTheme(theme) {
+        const isDark = theme === 'dark';
+        if (isDark) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        const icon = document.getElementById('theme-toggle-icon');
+        if (icon) icon.innerText = isDark ? '☀️' : '🌙';
+    }
+
+    async function toggleThemeMode() {
+        const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+        localStorage.setItem('theme_mode', newTheme);
+
+        try {
+            await fetch("{% url 'save_theme_settings' %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': CSRF_TOKEN
+                },
+                body: JSON.stringify({ theme_mode: newTheme })
+            });
+        } catch (e) {
+            console.error('Ошибка темы:', e);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        const icon = document.getElementById('theme-toggle-icon');
+        if (icon) icon.innerText = isDark ? '☀️' : '🌙';
     });
 </script>
 

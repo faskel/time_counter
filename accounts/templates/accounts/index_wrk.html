@@ -1,0 +1,699 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочее время сотрудника</title>
+{#        <link rel="stylesheet" href="{% static "css/materialize.min.css" %}"/>#}
+{#        <link rel="stylesheet" href="{% static "css/materialize.css" %}"/>#}
+    <link rel="stylesheet" href="{% static "css/main.css" %}"/>
+
+</head>
+<body>
+<div class='static-head'>
+    <div class="header">
+
+        <div class="import-section">
+            <span>Импорт данных из файла:</span>
+
+            <form id="upload-form" method="post" enctype="multipart/form-data" action="{% url 'import_data' %}">
+                {% csrf_token %}
+                <input type="file" name="file" id="file-input" required style="display: none;">
+                <label for="file-input" class="btn-action import-btn">Выбрать файл</label>
+                <button type="submit" class="btn-action import-btn">Импорт</button>
+                <span id="file-name-display" style="margin-left: 10px; font-style: italic"></span>
+
+
+            </form>
+            <div id="import-status"></div>
+        </div>
+
+        <div class="auth-links">
+            <button id="theme-toggle" class="btn-action">🌓</button>
+            <button id="random-theme-btn" class="btn-action">🌈</button>
+            {% if current_user.is_authenticated %}
+                <a href="{% url 'logout' %}" class="btn-action">Выйти</a>
+            {% else %}
+                <a href="{% url 'login' %}">Войти</a>
+                <a href="{% url 'register' %}">Зарегистрироваться</a>
+            {% endif %}
+        </div>
+
+
+    </div>
+    <h1>
+        Рабочее время сотрудника.
+        <br>
+        Добро пожаловать, {{ current_user_first_name }} {{ current_user_last_name }}!
+    </h1>
+
+    <div class="month-balance-container">
+
+        <span class="block-span label month-balance-label">Баланс за {{ current_month_display }} </span>
+        <span id="month-balance-total"
+              class=" month-balance-display {% if is_month_balance_negative %}negative{% else %}positive{% endif %}">
+            {{ total_month_balance }} </span>
+
+
+        {#        {% if is_month_balance_negative %}👎{% else %}👍{% endif %}#}
+
+        <span class="block-span label month-balance-label">Баланс на сегодня  </span>
+        <span id="month-balance-total"
+              class="month-balance-display {% if is_today_balance_negative %}negative{% else %}positive{% endif %}"> {{ today_balance }}
+    </span>
+        {% if is_today_balance_negative %}👎{% else %}👍{% endif %}
+
+    </div>
+
+    <div class="month-navigation">
+        <button class="nav-btn" id="prev-month">← Предыдущий месяц</button>
+        <button class="nav-btn" id="select-month-btn">{{ current_month_display }}</button>
+        <div id="month-list-container" style="display:none; position: absolute; z-index: 10;">
+            <select class="nav-btn" id="month-select" size="12">
+                {% for month_num, month_name in months.items %}
+                    <option value="{{ month_num }}">{{ month_name }}</option>
+                {% endfor %}
+            </select></div>
+
+        <button class="nav-btn" id="next-month">Следующий месяц →</button>
+    </div>
+
+</div>
+
+
+
+{% for week in weekly_table_rows %}
+    <table class="week-table">
+
+        <thead>
+        <tr>
+            <th class="row-header"></th>
+            {% for day in week.dates %}
+                <th class="{% if not day.is_current_month %}other-month-day{% endif %}">
+                    {{ day.date_obj|date:'D d.m' }}
+                </th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+            <th class="row-header">Тип дня</th>
+            {% for cell_data in week.types %}
+                <td class="{% if cell_data.type == 'WD' %}WD-table {% elif cell_data.type == 'SMD' %} SMD-table {% elif cell_data.type == 'HD' %}HD-table{% elif cell_data.type == 'VL' %}VL-table{% elif cell_data.type %}{% endif %}">
+                    {% if cell_data.is_current_month %}
+                        <span class="day-type-display" id="day-type-display-{{ cell_data.id }}">
+                                {{ cell_data.display }}
+                            </span>
+                        <select id="day-type-{{ cell_data.id }}" class="day-type-select"
+                                data-day-id="{{ cell_data.id }}" style="display:none;">
+                            <option value="ND" {% if cell_data.type == 'ND' %}selected{% endif %}>Рабочий день</option>
+                            <option value="WD" {% if cell_data.type == 'WD' %}selected{% endif %}>Выходной</option>
+                            <option value="SMD" {% if cell_data.type == 'SMD' %}selected{% endif %}>Короткий день
+                            </option>
+                            <option value="HD" {% if cell_data.type == 'HD' %}selected{% endif %}>Праздник</option>
+                            <option value="VL" {% if cell_data.type == 'VL' %}selected{% endif %}>Отпуск</option>
+                        </select>
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Время</th>
+            {% for cell_data in week.times %}
+                <td>
+                    {% if cell_data %}
+                        {% for time_pair in cell_data %}
+                            <div class="time-pair-group {% if time_pair.entry_type == 'mk' %}mk-highlight{% else %}default-highlight{% endif %}"
+                                 data-order="{{ time_pair.order }}"
+                                 data-day-id="{{ time_pair.day_id }}"
+                                 data-entry-type="{{ time_pair.entry_type|default:'default' }}"
+                                 data-is-calculated="{{ time_pair.is_calculated|lower }}">
+                                <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}"
+                                     data-order="{{ time_pair.order }}">
+                                    <span class="time-display entry-display">{{ time_pair.entry_time }}</span>
+                                    <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}"
+                                           style="display:none;">
+                                    <span class="time-display exit-display">{{ time_pair.exit_time }}</span>
+                                    <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}"
+                                           style="display:none;">
+
+                                    <button type="button" class="btn-action btn-remove-pair" style="display:none;">-
+                                    </button>
+                                    <button type="button" class="btn-action btn-calculate-exit" style="display:none;">
+                                        Расчёт
+                                    </button>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="time-pair-group default-highlight" data-day-id="{{ cell_data.id }}"
+                                 data-order="0">
+                                <div class="time-entry-row" data-day-id="{{ cell_data.id }}" data-order="0">
+                                    <span class="time-display entry-display">-</span>
+                                    <input type="time" class="time-input entry-input" value="" style="display:none;">
+                                    <span class="time-display exit-display">-</span>
+                                    <input type="time" class="time-input exit-input" value="" style="display:none;">
+                                    <button type="button" class="btn-action btn-cancel" style="display:none;">-</button>
+                                    <button type="button" class="btn-action btn-calculate-exit" style="display:none;">
+                                        Расчёт
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="time-pair-group {% if time_pair.entry_type == 'mk' %}mk-highlight{% else %}default-highlight{% endif %}"
+                                 data-order="{{ time_pair.order }}"
+                                 data-day-id="{{ time_pair.day_id }}"
+                                 data-entry-type="{{ time_pair.entry_type|default:'default' }}"
+                                 data-is-calculated="{{ time_pair.is_calculated|lower }}">
+                                <div class="time-entry-row" data-day-id="{{ time_pair.day_id }}"
+                                     data-order="{{ time_pair.order }}">
+                                    <span class="time-display entry-display">{{ time_pair.entry_time }}</span>
+                                    <input type="time" class="time-input entry-input" value="{{ time_pair.entry_time }}"
+                                           style="display:none;">
+                                    <span class="time-display exit-display">{{ time_pair.exit_time }}</span>
+                                    <input type="time" class="time-input exit-input" value="{{ time_pair.exit_time }}"
+                                           style="display:none;">
+                                    <button type="button" class="btn-action btn-remove-pair" style="display:none;">-
+                                    </button>
+                                    <button type="button" class="btn-action btn-calculate-exit" style="display:none;">
+                                        Расчёт
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="time-pair-group default-highlight" data-day-id="{{ cell_data.id }}"
+                                 data-order="0">
+                                <div class="time-entry-row" data-day-id="{{ cell_data.id }}" data-order="0">
+                                    <span class="time-display entry-display">-</span>
+                                    <input type="time" class="time-input entry-input" value="" style="display:none;">
+                                    <span class="time-display exit-display">-</span>
+                                    <input type="time" class="time-input exit-input" value="" style="display:none;">
+                                    <button type="button" class="btn-remove-pair" style="display:none;">-</button>
+                                    <button type="button" class="btn-action btn-calculate-exit" style="display:none;">
+                                        Расчёт
+                                    </button>
+                                </div>
+                            </div>
+
+                        {% endfor %}
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Итого за день</th>
+            {% for cell_data in week.total_time %}
+                <td>
+                    {% if cell_data %}
+                        <span class="total-time-display" id="total-time-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Баланс за день</th>
+            {% for cell_data in week.day_balance %}
+                <td>
+                    {% if cell_data %}
+                        <span class="day-balance-display {% if cell_data.is_negative %}negative{% endif %}"
+                              id="day-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+        <tr>
+            <th class="row-header">Накоп. баланс</th>
+            {% for cell_data in week.cumulative_balance %}
+                <td>
+                    {% if cell_data.is_current_month %}
+                        <span class="cumulative-balance-display {% if cell_data.is_negative %}negative{% else %}positive{% endif %}"
+                              id="cumulative-balance-{{ cell_data.id }}">
+                                {{ cell_data.value }}
+                            </span>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+
+        <tr>
+            <th class="row-header">Действия</th>
+            {% for cell_data in week.actions %}
+                <td>
+                    {% if cell_data.is_current_month %}
+                        <div id="actions-{{ cell_data.id }}">
+                            <button type="button" class="btn-action btn-save" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;"> сохр
+                            </button>
+                            <button type="button" class="btn-action btn-add-time" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;"> +
+                            </button>
+                            <button type="button" class="btn-action btn-add-mk" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;">МК
+                            </button>
+                            <button type="button" class="btn-action btn-edit" data-day-id="{{ cell_data.id }}">Редакт.
+                            </button>
+                            <button type="button" class="btn-action btn-cancel" data-day-id="{{ cell_data.id }}"
+                                    style="display:none;"> закр
+                            </button>
+                        </div>
+                    {% endif %}
+                </td>
+            {% endfor %}
+        </tr>
+        </tbody>
+    </table>
+{% endfor %}
+
+
+
+<script>
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const csrftoken = getCookie('csrftoken');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const randomThemeBtn = document.getElementById('random-theme-btn');
+        const body = document.body;
+        const root = document.documentElement;
+
+        // --- Управление темами ---
+
+        function applySavedColors(colors) {
+            if (!colors) return;
+            const themeColors = JSON.parse(colors);
+            root.style.setProperty('--bg-color', themeColors.bgColor);
+            root.style.setProperty('--text-color', themeColors.textColor);
+            root.style.setProperty('--header-bg-color', themeColors.headerColor);
+            root.style.setProperty('--table-border-color', themeColors.tableBorderColor);
+            root.style.setProperty('--row-header-bg-color', themeColors.rowHeaderColor);
+            root.style.setProperty('--month-balance-bg', themeColors.monthBalanceBg);
+            root.style.setProperty('--month-balance-text', themeColors.monthBalanceText);
+            root.style.setProperty('--positive-color', themeColors.positiveColor);
+            root.style.setProperty('--negative-color', themeColors.negativeColor);
+            root.style.setProperty('--input-bg-color', themeColors.inputBgColor);
+            root.style.setProperty('--input-text-color', themeColors.inputTextcolor);
+            root.style.setProperty('--input-border-color', themeColors.inputBorderColor);
+            root.style.setProperty('--button-color', themeColors.buttonColor);
+            root.style.setProperty('--button-hover-color', themeColors.buttonHoverColor);
+            root.style.setProperty('--button-calculate-exit', themeColors.buttonCalcExit);
+            root.style.setProperty('--button-mk', themeColors.buttonMK);
+        }
+
+        const savedTheme = localStorage.getItem('theme');
+        const savedColors = localStorage.getItem('randomColors');
+        if (savedTheme === 'dark-theme') {
+            body.classList.add('dark-theme');
+        } else if (savedTheme === 'random-theme') {
+            body.classList.add('random-theme');
+            applySavedColors(savedColors);
+        }
+        themeToggleBtn.addEventListener('click', () => {
+            body.classList.toggle('dark-theme');
+            body.classList.remove('random-theme');
+            if (body.classList.contains('dark-theme')) {
+                localStorage.setItem('theme', 'dark-theme');
+            } else {
+                localStorage.removeItem('theme');
+            }
+            localStorage.removeItem('randomColors');
+        });
+
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        randomThemeBtn.addEventListener('click', () => {
+            body.classList.add('random-theme');
+            body.classList.remove('dark-theme');
+            const themeColors = {
+                bgColor: getRandomColor(),
+                textColor: getRandomColor(),
+                headerColor: getRandomColor(),
+                tableBorderColor: getRandomColor(),
+                rowHeaderColor: getRandomColor(),
+                monthBalanceBg: getRandomColor(),
+                monthBalanceText: getRandomColor(),
+                positiveColor: getRandomColor(),
+                negativeColor: getRandomColor(),
+                inputBgColor: getRandomColor(),
+                inputTextcolor: getRandomColor(),
+                inputBorderColor: getRandomColor(),
+                buttonColor: getRandomColor(),
+                buttonHoverColor: getRandomColor(),
+                buttonCalcExit: getRandomColor(),
+                buttonMK: getRandomColor()
+            };
+            applySavedColors(JSON.stringify(themeColors));
+            localStorage.setItem('theme', 'random-theme');
+            localStorage.setItem('randomColors', JSON.stringify(themeColors));
+        });
+
+        // --- Основная функциональность страницы ---
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie) {
+                document.cookie.split(';').forEach(cookie => {
+                    cookie = cookie.trim();
+                    if (cookie.startsWith(name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    }
+                });
+            }
+            return cookieValue;
+        }
+
+        function sortTimePairs(dayId) {
+            const timeTd = document.querySelector(`.time-pair-group[data-day-id="${dayId}"]`).closest('td');
+            const pairGroups = Array.from(timeTd.querySelectorAll('.time-pair-group'));
+
+            pairGroups.sort((a, b) => {
+                const timeA = a.querySelector('.entry-input').value || '24:00';
+                const timeB = b.querySelector('.entry-input').value || '24:00';
+                return timeA.localeCompare(timeB);
+            });
+
+            pairGroups.forEach((pairGroup, index) => {
+                timeTd.appendChild(pairGroup);
+                pairGroup.dataset.order = index;
+                pairGroup.querySelector('.time-entry-row').dataset.order = index;
+            });
+        }
+
+        // Применение подсветки при загрузке страницы
+        document.querySelectorAll('.time-pair-group').forEach(pairGroup => {
+            if (pairGroup.dataset.isCalculated === 'true') {
+                pairGroup.classList.add('calculated-time-highlight');
+            }
+        });
+
+        document.getElementById('prev-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+        document.getElementById('next-month').addEventListener('click', () => {
+            const currentDate = new Date('{{ selected_date }}T00:00:00');
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            window.location.search = `?date=${currentDate.toISOString().split('T')[0]}`;
+        });
+
+        function getDayElements(dayId) {
+            const elements = {};
+            elements.dayTypeSelect = document.querySelector(`.day-type-select[data-day-id="${dayId}"]`);
+            elements.dayTypeDisplay = document.querySelector(`#day-type-display-${dayId}`);
+            elements.timePairGroups = document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`);
+            elements.totalTimeDisplay = document.getElementById(`total-time-${dayId}`);
+            elements.dayBalanceDisplay = document.getElementById(`day-balance-${dayId}`);
+            elements.cumulativeBalanceDisplay = document.getElementById(`cumulative-balance-${dayId}`);
+            const actionButtonContainer = document.querySelector(`#actions-${dayId}`);
+            elements.editBtn = actionButtonContainer.querySelector('.btn-edit');
+            elements.saveBtn = actionButtonContainer.querySelector('.btn-save');
+            elements.addNewPairBtn = actionButtonContainer.querySelector('.btn-add-time');
+            elements.addNewMKBtn = actionButtonContainer.querySelector('.btn-add-mk');
+            elements.cancelBtn = actionButtonContainer.querySelector('.btn-cancel');
+            return elements;
+        }
+
+        document.querySelectorAll('.btn-edit').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                if (elements.dayTypeDisplay) elements.dayTypeDisplay.style.display = 'none';
+                if (elements.dayTypeSelect) elements.dayTypeSelect.style.display = 'inline-block';
+                elements.timePairGroups.forEach(pairGroup => {
+                    pairGroup.querySelectorAll('.time-input').forEach(input => input.style.display = 'inline-block');
+                    pairGroup.querySelectorAll('.time-display').forEach(span => span.style.display = 'none');
+                    pairGroup.querySelectorAll('.btn-remove-pair').forEach(btn => btn.style.display = 'inline-block');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+                    const calculateBtn = pairGroup.querySelector('.btn-calculate-exit');
+                    if (exitInput && !exitInput.value && calculateBtn) {
+                        calculateBtn.style.display = 'inline-block';
+                    } else if (calculateBtn) {
+                        calculateBtn.style.display = 'none';
+                    }
+                });
+                elements.saveBtn.style.display = 'inline-block';
+                elements.addNewPairBtn.style.display = 'inline-block';
+                elements.addNewMKBtn.style.display = 'inline-block';
+                elements.cancelBtn.style.display = 'inline-block';
+                elements.editBtn.style.display = 'none';
+            });
+        });
+
+        document.querySelectorAll('.btn-cancel').forEach(btn => {
+            btn.addEventListener('click', function () {
+                location.reload();
+            });
+        });
+
+        document.querySelectorAll('.btn-save').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+
+                // 1. Получаем все пары времени и преобразуем их в массив
+                let updatedPairGroups = Array.from(document.querySelectorAll(`.time-pair-group[data-day-id="${dayId}"]`));
+
+                // 2. Сортируем пары времени по их времени входа
+                updatedPairGroups.sort((a, b) => {
+                    const entryA = a.querySelector('.entry-input').value;
+                    const entryB = b.querySelector('.entry-input').value;
+
+                    // Сравниваем строки времени. Они будут отсортированы в хронологическом порядке.
+                    // Пустые значения перемещаем в конец.
+                    if (!entryA && !entryB) return 0;
+                    if (!entryA) return 1;
+                    if (!entryB) return -1;
+
+                    return entryA.localeCompare(entryB);
+                });
+
+                // 3. Формируем данные для отправки, используя отсортированный массив
+                const timeData = {
+                    day_type: elements.dayTypeSelect ? elements.dayTypeSelect.value : '',
+                    time_entries: [],
+                    dayId: dayId
+                };
+
+                let order = 0;
+                updatedPairGroups.forEach(pairGroup => {
+                    const entryInput = pairGroup.querySelector('.entry-input');
+                    const exitInput = pairGroup.querySelector('.exit-input');
+                    const entryType = pairGroup.dataset.entryType || 'default';
+                    const isCalculated = pairGroup.dataset.isCalculated === 'true';
+
+                    // Важно: обновляем data-order, чтобы он соответствовал новому порядку в DOM
+                    pairGroup.dataset.order = order;
+                    pairGroup.querySelector('.time-entry-row').dataset.order = order;
+
+                    if (entryInput && entryInput.value) {
+                        timeData.time_entries.push({
+                            type: 'EG',
+                            time: entryInput.value,
+                            order: order,
+                            entry_type: entryType
+                        });
+                    }
+                    if (exitInput && exitInput.value) {
+                        timeData.time_entries.push({
+                            type: 'OG',
+                            time: exitInput.value,
+                            order: order,
+                            entry_type: entryType,
+                            is_calculated: isCalculated
+                        });
+                    }
+                    order++;
+                });
+
+                // 4. Отправляем отсортированные данные на сервер
+                fetch('{% url "update_work_times" %}', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify(timeData)
+                })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert('Ошибка сохранения: ' + data.message);
+                        }
+                    })
+                    .catch(err => alert('Ошибка: ' + err));
+            });
+        });
+
+
+        document.querySelectorAll('.btn-add-time').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newOrder = elements.timePairGroups.length;
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group default-highlight';
+                newPair.dataset.dayId = dayId;
+                newPair.dataset.order = newOrder;
+                newPair.dataset.entryType = 'default';
+                newPair.innerHTML = `
+                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
+                    <span class="time-display entry-display" style="display:none;">-</span>
+                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                    <span class="time-display exit-display" style="display:none;">-</span>
+                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
+                    <button type="button" class="btn-action btn-calculate-exit" style="display:inline-block;">Расчёт</button>
+                </div>`;
+                const timeTd = elements.timePairGroups[0].closest('td');
+                timeTd.appendChild(newPair);
+                sortTimePairs(dayId);
+            });
+        });
+
+        document.querySelectorAll('.btn-add-mk').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const dayId = this.dataset.dayId;
+                const elements = getDayElements(dayId);
+                const newOrder = elements.timePairGroups.length;
+                const newPair = document.createElement('div');
+                newPair.className = 'time-pair-group mk-highlight';
+                newPair.dataset.dayId = dayId;
+                newPair.dataset.order = newOrder;
+                newPair.dataset.entryType = 'mk';
+                newPair.innerHTML = `
+                <div class="time-entry-row" data-day-id="${dayId}" data-order="${newOrder}">
+                    <span class="time-display entry-display" style="display:none;">-</span>
+                    <input type="time" class="time-input entry-input" value="" style="display:inline-block;">
+                    <span class="time-display exit-display" style="display:none;">-</span>
+                    <input type="time" class="time-input exit-input" value="" style="display:inline-block;">
+                    <button type="button" class="btn-remove-pair" style="display:inline-block;">-</button>
+                    <button type="button" class="btn-action btn-calculate-exit" style="display:inline-block;">Расчёт</button>
+                </div>`;
+                const timeTd = elements.timePairGroups[0].closest('td');
+                timeTd.appendChild(newPair);
+                sortTimePairs(dayId);
+            });
+        });
+
+        document.addEventListener('input', function (e) {
+            if (e.target.classList.contains('entry-input') || e.target.classList.contains('exit-input')) {
+                const pairGroup = e.target.closest('.time-pair-group');
+                if (!pairGroup) return;
+                const entryInput = pairGroup.querySelector('.entry-input');
+                const exitInput = pairGroup.querySelector('.exit-input');
+                const calculateBtn = pairGroup.querySelector('.btn-calculate-exit');
+                if (calculateBtn) {
+                    if (entryInput.value && !exitInput.value) {
+                        calculateBtn.style.display = 'inline-block';
+                    } else {
+                        calculateBtn.style.display = 'none';
+                        pairGroup.classList.remove('calculated-time-highlight');
+                        pairGroup.dataset.isCalculated = 'false'; // Сбрасываем флаг, если время введено вручную
+                    }
+                }
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (e.target.classList.contains('btn-calculate-exit')) {
+                const calculateBtn = e.target;
+                const pairGroup = calculateBtn.closest('.time-pair-group');
+                const entryInput = pairGroup.querySelector('.entry-input');
+                const exitInput = pairGroup.querySelector('.exit-input');
+                const dayId = pairGroup.dataset.dayId;
+                if (!entryInput.value) {
+                    alert('Пожалуйста, введите время входа для расчёта.');
+                    return;
+                }
+                fetch('{% url "calculate_exit_time" %}', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify({
+                        day_id: dayId,
+                    })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            exitInput.value = data.required_exit_time;
+                            pairGroup.classList.add('calculated-time-highlight');
+                            pairGroup.dataset.isCalculated = 'true'; // Устанавливаем флаг
+                            calculateBtn.style.display = 'none';
+                        } else {
+                            alert('Ошибка расчёта: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Ошибка сети: ' + error);
+                    });
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            if (e.target.classList.contains('btn-remove-pair')) {
+                const pairGroup = e.target.closest('.time-pair-group');
+                if (pairGroup) {
+                    pairGroup.remove();
+                }
+            }
+        });
+
+        document.getElementById('upload-form').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const statusDiv = document.getElementById('import-status');
+            statusDiv.innerHTML = 'Импортирую... Пожалуйста, подождите.';
+
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {'X-CSRFToken': getCookie('csrftoken')}
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        statusDiv.innerHTML = `<span style="color: green;">${data.message}</span>`;
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else {
+                        statusDiv.innerHTML = `<span style="color: red;">${data.message}</span>`;
+                    }
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<span style="color: red;">Произошла ошибка: ${error}</span>`;
+                });
+        });
+
+        const fileInput = document.getElementById('file-input');
+        const fileNameDisplay = document.getElementById('file-name-display');
+
+        fileInput.addEventListener('change', function () {
+            if (this.files.length > 0) {
+                fileNameDisplay.textContent = this.files[0].name;
+            } else {
+                fileNameDisplay.textContent = 'Файл не выбран';
+            }
+        });
+    });
+
+</script>
+<script src="{% static "/js/materialize.min.js" %}"></script>
+<script src="{% static "/js/materialize.js" %}"></script>
+
+</body>
+</html>
